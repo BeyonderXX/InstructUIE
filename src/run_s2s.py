@@ -55,7 +55,7 @@ from compute_metrics import compute_metrics, compute_grouped_metrics
 
 set_progress_bar_enabled(False)
 logger = logging.getLogger(__name__)
-CURRENT_PATH = os.path.abspath(__file__)
+CURRENT_DIR = os.path.dirname(__file__)
 
 
 try:
@@ -311,7 +311,7 @@ def main():
 
     # Get the NaturalInstructions dataset
     raw_datasets = load_dataset(
-        "ni_dataset.py",
+        os.path.join(CURRENT_DIR, "ni_dataset.py"),
         data_dir=data_args.data_dir, 
         task_dir=data_args.task_dir, 
         cache_dir=model_args.cache_dir,

@@ -15,6 +15,8 @@ from ni_collator import DataCollatorForNI
 from dataclasses import dataclass, field
 from nltk import sent_tokenize
 
+CURRENT_DIR = os.path.dirname(__file__)
+
 @dataclass
 class CustomizedArguments:
     output_dir: str = field(
@@ -25,7 +27,7 @@ if __name__ == "__main__":
     parser = HfArgumentParser((DataTrainingArguments, CustomizedArguments))
     args, customized_args = parser.parse_args_into_dataclasses()
     raw_datasets = load_dataset(
-        "ni_dataset.py",
+        os.path.join(CURRENT_DIR, "ni_dataset.py"),
         data_dir=args.data_dir, 
         task_dir=args.task_dir, 
         max_num_instances_per_task=args.max_num_instances_per_task,

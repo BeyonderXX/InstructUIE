@@ -11,6 +11,7 @@ from ni_collator import DataCollatorForNI
 from dataclasses import dataclass, field
 
 openai.api_key=os.environ["openai_key"]
+CURRENT_DIR = os.path.dirname(__file__)
 
 @dataclass
 class GPT3Arguments(DataTrainingArguments):
@@ -37,7 +38,7 @@ if __name__ == "__main__":
     parser = HfArgumentParser((GPT3Arguments,))
     args, = parser.parse_args_into_dataclasses()
     raw_datasets = load_dataset(
-        "ni_dataset.py",
+        os.path.join(CURRENT_DIR, "ni_dataset.py"),
         data_dir=args.data_dir, 
         task_dir=args.task_dir, 
         max_num_instances_per_task=args.max_num_instances_per_task,
