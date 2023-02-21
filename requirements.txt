@@ -1,6 +1,6 @@
 transformers==4.18.0
 datasets==1.17.0
-deepspeed
+deepspeed==0.8.0
 fairscale==0.4.5
 ipython
 nltk
@@ -9,3 +9,8 @@ tqdm
 rouge_score
 wandb==0.12.10
 sentencepiece==0.1.96
+
+python -c "import nltk; nltk.download('punkt', quiet=True)"
+conda install mpi4py
+# wget https://github.com/ninja-build/ninja/releases/download/v1.10.2/ninja-linux.zip
+# sudo unzip ninja-linux.zip -d /usr/local/bin/

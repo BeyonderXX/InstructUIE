@@ -1,5 +1,4 @@
 import logging
-import random
 import string
 from transformers.data.data_collator import *
 
@@ -23,8 +22,7 @@ class DataCollatorForNI:
     num_neg_examples: int = 0
     add_explanation: bool = False
     tk_instruct: bool = False
-    text_only: bool=False
-    
+    text_only: bool = False
 
     def __call__(self, batch, return_tensors=None):
 

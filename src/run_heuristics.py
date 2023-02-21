@@ -29,7 +29,7 @@ if __name__ == "__main__":
     parser = HfArgumentParser((HeuristicsArguments,))
     args, = parser.parse_args_into_dataclasses()
     raw_datasets = load_dataset(
-        "src/ni_dataset.py",
+        "ni_dataset.py",
         data_dir=args.data_dir, 
         task_dir=args.task_dir, 
         max_num_instances_per_task=args.max_num_instances_per_task,

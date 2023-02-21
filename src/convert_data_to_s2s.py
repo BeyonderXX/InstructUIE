@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parser = HfArgumentParser((DataTrainingArguments, CustomizedArguments))
     args, customized_args = parser.parse_args_into_dataclasses()
     raw_datasets = load_dataset(
-        "src/ni_dataset.py",
+        "ni_dataset.py",
         data_dir=args.data_dir, 
         task_dir=args.task_dir, 
         max_num_instances_per_task=args.max_num_instances_per_task,
@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     for split in ["train", "test"]:
         with open(os.path.join(customized_args.output_dir, f"{split}.tsv"), "w") as fout1, \
-            open(os.path.join(customized_args.output_dir, f"{split}_examples.jsonl"), "w") as fout2:
+             open(os.path.join(customized_args.output_dir, f"{split}_examples.jsonl"), "w") as fout2:
             for example in tqdm.tqdm(raw_datasets[split]):
                 encoded_example = data_collator([example])
                 fout1.write(

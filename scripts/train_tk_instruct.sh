@@ -10,7 +10,7 @@ deepspeed --master_port $port src/run_s2s.py \
     --do_train \
     --do_predict \
     --predict_with_generate \
-    --model_name_or_path google/t5-xl-lm-adapt \
+    --model_name_or_path /mnt/data/user/zhou_weikang/model_cache/t5-3b \
     --max_source_length 1024 \
     --max_target_length 128 \
     --generation_max_length 128 \
