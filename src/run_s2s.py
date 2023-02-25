@@ -291,6 +291,7 @@ def main():
             "`--source_prefix 'summarize: ' `"
         )
 
+    # TODO, wx, 连同训练参数，优化器状态一起存储
     # Detecting last checkpoint.
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:

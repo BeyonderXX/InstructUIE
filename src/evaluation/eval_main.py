@@ -5,6 +5,9 @@ __all__ = [
     "eval"
 ]
 
+
+# TODO, xia han, bug fix
+# f1 score 应该在数据集集合尺度上计算 precision、recall，而不是对单个样本计算，之后求平均
 def eval(json_data, y_preds, task: str):
     """
     integrated evaluation entry
@@ -27,9 +30,11 @@ def eval(json_data, y_preds, task: str):
         scores.append(score)
     return sum(scores) / len(scores)
 
+
 def _remove_redundant_space(s):
     # '   a  b  \t  c  \n' --> 'a b c'
     return ' '.join(s.split())
+
 
 def _calc_f1_score(truth: set, pred: set):
     # TP: 在data中存在，且在输出中存在
@@ -54,6 +59,7 @@ def _calc_f1_score(truth: set, pred: set):
         f1 = 2 * recall * precision / (recall + precision)
     return f1
 
+
 def eval_NER(json_data, y_pred: str):
     """
     json_data: json-like object
@@ -76,6 +82,7 @@ def eval_NER(json_data, y_pred: str):
             entity_pred.add(ent)
     
     return _calc_f1_score(entity_truth, entity_pred)
+
 
 def eval_RE(json_data, y_pred: str):
     """
@@ -104,6 +111,7 @@ def eval_RE(json_data, y_pred: str):
                 pred.add(rel)
     return _calc_f1_score(truth, pred)
 
+
 def eval_MRC(json_data, y_pred: str):
     """
     json_data: json-like object
@@ -116,6 +124,7 @@ def eval_MRC(json_data, y_pred: str):
         return 1
     else:
         return 0
+
 
 def eval_SM(json_data, y_pred: str):
     """
@@ -133,6 +142,7 @@ def eval_SM(json_data, y_pred: str):
         return 1
     else:
         return 0
+
 
 def eval_Event(json_data, y_pred: str):
     """
