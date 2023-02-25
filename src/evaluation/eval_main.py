@@ -2,13 +2,30 @@ import json
 import re
 
 __all__ = [
-    "eval_NER",
-    "eval_RE",
+    "eval"
 ]
 
-def eval():
-    "Aggregated evaluation entry"
-    pass
+def eval(json_data, y_preds, task: str):
+    """
+    integrated evaluation entry
+    
+    json_data: json-like object
+    y_pred: list of strings
+    task: {'NER', 'RE', 'Event', 'MRC', 'SM'}
+    """
+    func_dict = {
+        'NER': eval_NER,
+        'RE': eval_RE,
+        'Event': eval_Event,
+        'MRC': eval_MRC,
+        'SM': eval_SM
+    }
+    assert task in func_dict, 'Invalid task name %s.'%(task)
+    scores = []
+    for json_datus, y_pred in zip(json_data, y_preds):
+        score = func_dict[task](json_datus, y_pred)
+        scores.append(score)
+    return sum(scores) / len(scores)
 
 def _remove_redundant_space(s):
     # '   a  b  \t  c  \n' --> 'a b c'
@@ -37,13 +54,12 @@ def _calc_f1_score(truth: set, pred: set):
         f1 = 2 * recall * precision / (recall + precision)
     return f1
 
-def eval_NER(data: str, y_pred: str):
+def eval_NER(json_data, y_pred: str):
     """
-    data: json-like string
+    json_data: json-like object
     y_pred: single string outputed by model
     return: F1 score 
     """
-    json_data = json.loads(data)
     entity_truth = set()
     for ent in json_data['entities']:
         ent = ent['type']+':'+ent['name']
@@ -61,13 +77,12 @@ def eval_NER(data: str, y_pred: str):
     
     return _calc_f1_score(entity_truth, entity_pred)
 
-def eval_RE(data: str, y_pred: str):
+def eval_RE(json_data, y_pred: str):
     """
-    data: json-like string
+    json_data: json-like object
     y_pred: single string outputed by model
     return: F1 score 
     """
-    json_data = json.loads(data)
     truth = set()
     for rel in json_data['relations']:
         head = rel['head']['name']
@@ -89,13 +104,12 @@ def eval_RE(data: str, y_pred: str):
                 pred.add(rel)
     return _calc_f1_score(truth, pred)
 
-def eval_MRC(data: str, y_pred: str):
+def eval_MRC(json_data, y_pred: str):
     """
-    data: json-like string
+    json_data: json-like object
     y_pred: single string outputed by model
     return: right or not
     """
-    json_data = json.loads(data)
     y = _remove_redundant_space(json_data['answer_text'])
     y_pred = _remove_redundant_space(y_pred)
     if y == y_pred:
@@ -103,13 +117,13 @@ def eval_MRC(data: str, y_pred: str):
     else:
         return 0
 
-def eval_SM(data: str, y_pred: str):
+def eval_SM(json_data, y_pred: str):
     """
-    data: json-like string
+    data: json-like object
     y_pred: single string outputed by model
     return: right or not
     """
-    y = _remove_redundant_space(json.loads(data)['label'])
+    y = _remove_redundant_space(json_data['label'])
     y_pred = _remove_redundant_space(y_pred)
     if y_pred == '是':
         y_pred = 'Yes'
@@ -120,13 +134,12 @@ def eval_SM(data: str, y_pred: str):
     else:
         return 0
 
-def eval_Event(data: str, y_pred: str):
+def eval_Event(json_data, y_pred: str):
     """
-    data: json-like string
+    json_data: json-like object
     y_pred: single string outputed by model
     return: F1 score
     """
-    json_data = json.loads(data)
     truth = set()
     for event in json_data['events']:
         event_elements = []
