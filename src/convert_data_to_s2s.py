@@ -11,7 +11,7 @@ import pandas as pd
 from transformers import HfArgumentParser, GPT2TokenizerFast
 from run_s2s import DataTrainingArguments
 from datasets import load_dataset
-from ni_collator import DataCollatorForNI
+from uie_collator import DataCollatorForUIE
 from dataclasses import dataclass, field
 from nltk import sent_tokenize
 
@@ -23,11 +23,12 @@ class CustomizedArguments:
         default="data/text2text/", metadata={"help": "The directory for saving splits."}
     )
 
+
 if __name__ == "__main__":
     parser = HfArgumentParser((DataTrainingArguments, CustomizedArguments))
     args, customized_args = parser.parse_args_into_dataclasses()
     raw_datasets = load_dataset(
-        os.path.join(CURRENT_DIR, "ni_dataset.py"),
+        os.path.join(CURRENT_DIR, "uie_dataset.py"),
         data_dir=args.data_dir, 
         task_dir=args.task_dir, 
         max_num_instances_per_task=args.max_num_instances_per_task,
@@ -35,7 +36,8 @@ if __name__ == "__main__":
     )
 
     tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
-    data_collator = DataCollatorForNI(
+    # 数据集加载后处理为sample
+    data_collator = DataCollatorForUIE(
         tokenizer,
         model=None,
         padding="max_length" if args.pad_to_max_length else "longest",

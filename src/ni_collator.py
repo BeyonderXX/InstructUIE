@@ -79,7 +79,8 @@ class DataCollatorForNI:
                 if not definition[-1] in string.punctuation:
                     definition += "."
                 definition += "\n\n"
-            
+
+            # TODO，样本添加逻辑
             # try to add positive examples.
             pos_examples = []
             for idx, pos_example in enumerate(instance["Positive Examples"][:num_pos_examples]):
@@ -105,27 +106,29 @@ class DataCollatorForNI:
             
             # try to add negative examples.
             neg_examples = []
-            for idx, neg_example in enumerate(instance["Negative Examples"][:num_neg_examples]):
-                neg_example_str = f" Negative Example {idx+1} -\n"
-                neg_example_str += f"Input: {neg_example['input'].strip()}"
-                if not neg_example_str[-1] in string.punctuation:
-                    neg_example_str += "."
-                neg_example_str += "\n"
-                neg_example_str += f" Output: {neg_example['output'].strip()}"
-                if not neg_example_str[-1] in string.punctuation:
-                    neg_example_str += "."
-                neg_example_str += "\n"
-                if add_explanation and "explanation" in neg_example:
-                    neg_example_str += f" Explanation: {neg_example['explanation'].strip()}"
-                    if not neg_example_str[-1] in string.punctuation:
-                        neg_example_str += "."
-                    neg_example_str += "\n"
-                neg_example_str += "\n"
-                if len(self.tokenizer(definition + " ".join(pos_examples) + " ".join(neg_examples) + neg_example_str + task_input)["input_ids"]) <= self.max_source_length:
-                    neg_examples.append(neg_example_str)
-                else:
-                    break 
-            
+            # for idx, neg_example in enumerate(instance["Negative Examples"][:num_neg_examples]):
+            #     neg_example_str = f" Negative Example {idx+1} -\n"
+            #     neg_example_str += f"Input: {neg_example['input'].strip()}"
+            #     if not neg_example_str[-1] in string.punctuation:
+            #         neg_example_str += "."
+            #     neg_example_str += "\n"
+            #     neg_example_str += f" Output: {neg_example['output'].strip()}"
+            #     if not neg_example_str[-1] in string.punctuation:
+            #         neg_example_str += "."
+            #     neg_example_str += "\n"
+            #     if add_explanation and "explanation" in neg_example:
+            #         neg_example_str += f" Explanation: {neg_example['explanation'].strip()}"
+            #         if not neg_example_str[-1] in string.punctuation:
+            #             neg_example_str += "."
+            #         neg_example_str += "\n"
+            #     neg_example_str += "\n"
+            #     if len(self.tokenizer(definition + " ".join(pos_examples) + " ".join(neg_examples) + neg_example_str + task_input)["input_ids"]) <= self.max_source_length:
+            #         neg_examples.append(neg_example_str)
+            #     else:
+            #         break
+            #
+
+            # TODO，暂时不添加负面样本，后续考虑支持
             source = task_name + definition + "".join(pos_examples) + "".join(neg_examples) + task_input
             tokenized_source = self.tokenizer(source)["input_ids"]
             if len(tokenized_source) <= self.max_source_length:
