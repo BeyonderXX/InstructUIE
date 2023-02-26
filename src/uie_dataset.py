@@ -50,6 +50,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 {
                     "id": datasets.Value("string"),
                     "Task": datasets.Value("string"),
+                    "instruction": datasets.Value("string"),
                     # "Categories": [datasets.Value("string")],
                     # "Definition": [datasets.Value("string")],
                     # "Input_language": [datasets.Value("string")],
@@ -119,11 +120,24 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 task_name = dirname.strip()
 
                 task_file_path = os.path.join(task_dir, subset + ".json")
+                labels_path = os.path.join(task_dir, "labels.json")
                 id = 0
+                instruction = "Please list all entity words in the text that fit the category." \
+                               "Output format is (type 1: word 1, type 2: word 2, ..., type N: word N). \n " \
+                               "text: {0} \n "
+                               # "Category: {1}" \
+                               # "Answer:"
+                with open(labels_path, encoding="utf-8") as labels_f:
+                    labels_json = json.load(labels_f)
+                    labels_str = ','.join(labels_json)
+                    instruction += "Category:" + labels_str + " \n " + "Answer: "
+
+
                 with open(task_file_path, encoding="utf-8") as task_f:
                     s = task_f.read()
                     task_data_list = json.loads(s)
                     sample_template = {"Task": task_name}
+                    sample_template["instruction"] = instruction
                     instances = task_data_list
 
                     if max_num_instances_per_task is not None and max_num_instances_per_task >= 0:
@@ -137,11 +151,11 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                             "sentence": instance['sentence'],
                             "entities": json.dumps(instance['entities'])
                         }
-                        yield f"{task_name}_{idx}", example
-
-                    if id > 3:
-                        break
-                    id += 1
+                        yield f"{task_name}##{idx}", example
+                    #
+                    # if id > 3:
+                    #     break
+                    # id += 1
 
 
 def load_examples(path=None, task_dir=None, max_num_instances_per_task=None, subset=None):
@@ -170,7 +184,8 @@ def load_examples(path=None, task_dir=None, max_num_instances_per_task=None, sub
                     example = sample_template.copy()
                     example["id"] = idx
                     example["Instance"] = instance
-                    yield f"{task_name}_{idx}", example
+                    # TODO, 怎么减少冗余
+                    yield f"{task_name}##{idx}##", example
 
                 if id > 3:
                     break

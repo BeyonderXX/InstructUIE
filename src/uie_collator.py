@@ -31,66 +31,40 @@ class DataCollatorForUIE:
 
         sources = []
         for instance in batch:
-            if self.tk_instruct:
-                all_valid_encodings = [
-                    # instruction only
-                    {"add_task_name": False, "add_task_definition": True, "num_pos_examples": 0, "num_neg_examples": 0,
-                     "add_explanation": False},
-                    # example only
-                    {"add_task_name": False, "add_task_definition": False, "num_pos_examples": 2, "num_neg_examples": 0,
-                     "add_explanation": False},
-                    # instruction + pos examples
-                    {"add_task_name": False, "add_task_definition": True, "num_pos_examples": 2, "num_neg_examples": 0,
-                     "add_explanation": False},
-                    # instruction + pos examples + neg examples
-                    {"add_task_name": False, "add_task_definition": True, "num_pos_examples": 2, "num_neg_examples": 2,
-                     "add_explanation": False},
-                    # instruction + pos (w. explanation)
-                    {"add_task_name": False, "add_task_definition": True, "num_pos_examples": 2, "num_neg_examples": 0,
-                     "add_explanation": True},
-                ]
-                encoding_schema = random.choice(all_valid_encodings)
-                add_task_name = encoding_schema["add_task_name"]
-                add_task_definition = encoding_schema["add_task_definition"]
-                num_pos_examples = encoding_schema["num_pos_examples"]
-                num_neg_examples = encoding_schema["num_neg_examples"]
-                add_explanation = encoding_schema["add_explanation"]
-            else:
-                add_task_name = self.add_task_name
-                add_task_definition = self.add_task_definition
-                num_pos_examples = self.num_pos_examples
-                num_neg_examples = self.num_neg_examples
-                add_explanation = self.add_explanation
             # task definition 何时加载的？
-            task_input = "Please list all entity words in the text that fit the category.Output format is " \
-                         "[{word1, type1}, {word2, type2}] " \
-                         "text: {0} " \
-                         "category: {1}" \
-                         "Answer:"
+            # Done, 目前在loader中加载json
 
             # add the input first.
-            task_input += "Now complete the following example -\n"
-            task_input += f"Input: {instance['Instance']['input'].strip()}"
-            if not task_input[-1] in string.punctuation:
-                task_input += "."
-            task_input += "\n"
-            task_input += "Output: "
+            task_input = instance["instruction"]
+            task_input = task_input.format(instance['Instance']['sentence'])
 
             # TODO，方便模型识别数据集
-            task_name = ""
-            if add_task_name:
-                task_name += instance["Task"] + ". "
+            # task_name = ""
+            # if add_task_name:
+            #     task_name += instance["Task"] + ". "
 
-            definition = ""
-            if add_task_definition:
-                if isinstance(instance["Definition"], list):
-                    definition = "Definition: " + instance["Definition"][0].strip()  # TODO: should we use <Definition>?
-                else:
-                    definition = "Definition: " + instance["Definition"].strip()
-                if not definition[-1] in string.punctuation:
-                    definition += "."
-                definition += "\n\n"
+            # TODO，测试，原论文结论貌似没用
+            # definition = ""
+            # if add_task_definition:
+            #     if isinstance(instance["Definition"], list):
+            #         definition = "Definition: " + instance["Definition"][0].strip()  # TODO: should we use <Definition>?
+            #     else:
+            #         definition = "Definition: " + instance["Definition"].strip()
+            #     if not definition[-1] in string.punctuation:
+            #         definition += "."
+            #     definition += "\n\n"
 
+            source = task_input
+            tokenized_source = self.tokenizer(source)["input_ids"]
+            if len(tokenized_source) <= self.max_source_length:
+                sources.append(source)
+            else:
+                sources.append(
+                    self.tokenizer.decode(tokenized_source[:self.max_source_length], skip_special_tokens=True))
+
+        if self.text_only:
+            model_inputs = {"inputs": sources}
+        else:
             model_inputs = self.tokenizer(
                 sources,
                 max_length=self.max_source_length,
@@ -102,12 +76,16 @@ class DataCollatorForUIE:
         if "entities" in batch[0]["Instance"] and batch[0]["Instance"]["entities"]:
             # Randomly select one reference if multiple are provided.
             # 生成，NLU不需要
-            jsons = [json.loads(ex["Instance"]["output"]) for ex in batch]
+            jsons = [json.loads(ex["Instance"]["entities"]) for ex in batch]
             labels = []
             for entities in jsons:
                 kv_pairs = [[entity['type'], entity['name']] for entity in entities]
-                kv_string = ",".join(["{}:{}".format(k, v) for (k, v) in kv_pairs])
+                kv_string = ", ".join(["{}: {}".format(k, v) for (k, v) in kv_pairs])
                 labels.append(kv_string)
+
+            if self.text_only:
+                model_inputs["labels"] = labels
+            else:
 
                 with self.tokenizer.as_target_tokenizer():
                     labels = self.tokenizer(
