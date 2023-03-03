@@ -62,8 +62,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                     "id": datasets.Value("string"),
                     "Task": datasets.Value("string"),
                     "instruction": datasets.Value("string"),
-
-                    # "Categories": [datasets.Value("string")],
+                    "Categories": datasets.Value("string"),
                     # "Definition": [datasets.Value("string")],
                     # "Input_language": [datasets.Value("string")],
                     # "Output_language": [datasets.Value("string")],
@@ -149,7 +148,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                     with open(task_file_path, encoding="utf-8") as task_f:
                         s = task_f.read()
                         task_data_list = json.loads(s)
-                        sample_template = {"Task": task_catagory}
+                        sample_template = {"Task": task_file_name}
+                        sample_template["Categories"] = task_catagory
                         sample_template["instruction"] = instruction
                         instances = task_data_list
 
@@ -183,7 +183,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                     with open(task_file_path, encoding="utf-8") as task_f:
                         s = task_f.read()
                         task_data_list = json.loads(s)
-                        sample_template = {"Task": task_catagory}
+                        sample_template = {"Task": task_file_name}
+                        sample_template["Categories"] = task_catagory
                         sample_template["instruction"] = instruction
                         instances = task_data_list
 
@@ -240,7 +241,8 @@ def load_examples(path=None, task_dir = None , max_num_instances_per_task=None, 
                 with open(task_file_path, encoding="utf-8") as task_f:
                     s = task_f.read()
                     task_data_list = json.loads(s)
-                    sample_template = {"Task": task_catagory}
+                    sample_template = {"Task": task_file_name}
+                    sample_template["Categories"] = task_catagory
                     sample_template["instruction"] = instruction
                     instances = task_data_list
 
@@ -270,7 +272,8 @@ def load_examples(path=None, task_dir = None , max_num_instances_per_task=None, 
                 with open(task_file_path, encoding="utf-8") as task_f:
                     s = task_f.read()
                     task_data_list = json.loads(s)
-                    sample_template = {"Task": task_catagory}
+                    sample_template = {"Task": task_file_name}
+                    sample_template["Categories"] = task_catagory
                     sample_template["instruction"] = instruction
                     instances = task_data_list
 

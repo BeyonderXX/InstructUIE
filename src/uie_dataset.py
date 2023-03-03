@@ -32,7 +32,6 @@ class UIEConfig(datasets.BuilderConfig):
         self.max_num_instances_per_task: int = max_num_instances_per_task
         self.max_num_instances_per_eval_task: int = max_num_instances_per_eval_task
 
-
 class UIEInstructions(datasets.GeneratorBasedBuilder):
     """NaturalInstructions Dataset."""
 

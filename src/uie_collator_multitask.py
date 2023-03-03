@@ -35,22 +35,6 @@ class DataCollatorForUIE:
             task_input = instance["instruction"]
             task_input = task_input.format(instance['Instance']['sentence'])
 
-            # TODO，方便模型识别数据集
-            # task_name = ""
-            # if add_task_name:
-            #     task_name += instance["Task"] + ". "
-
-            # TODO，测试，原论文结论貌似没用
-            # definition = ""
-            # if add_task_definition:
-            #     if isinstance(instance["Definition"], list):
-            #         definition = "Definition: " + instance["Definition"][0].strip()  # TODO: should we use <Definition>?
-            #     else:
-            #         definition = "Definition: " + instance["Definition"].strip()
-            #     if not definition[-1] in string.punctuation:
-            #         definition += "."
-            #     definition += "\n\n"
-
             source = task_input
             tokenized_source = self.tokenizer(source)["input_ids"]
             if len(tokenized_source) <= self.max_source_length:
@@ -71,30 +55,26 @@ class DataCollatorForUIE:
                 pad_to_multiple_of=self.pad_to_multiple_of)
 
         if "entities" in batch[0]["Instance"] and batch[0]["Instance"]["entities"]:
-            # Randomly select one reference if multiple are provided.
-            # 生成，NLU不需要
-            # print([ex["Instance"]["entities"] for ex in batch])
             jsons = [json.loads(ex["Instance"]["entities"].replace("'",'"').replace("#$%#","'")) for ex in batch]
 
             labels = []
             for entities in jsons:
-                kv_pairs = None
-                relation_pairs = None
-                for entity in entities:
-                    if 'type' in entity and 'name' in entity:
-                        kv_pairs = [[entity['type'], entity['name']]]
-                    if 'head' in entity and 'type' in entity and 'tail' in entity:
-                        relation_pairs = [[entity['head']['name'],entity['type'],entity['tail']['name']]]
-                label = '[]'
-                try:
+                if entities:
+                    kv_pairs = None
+                    relation_pairs = None
+                    for entity in entities:
+                        #分别处理NER和RE
+                        if 'type' in entity and 'name' in entity:
+                            kv_pairs = [[entity['type'], entity['name']]]
+                        if 'head' in entity and 'type' in entity and 'tail' in entity:
+                            relation_pairs = [[entity['head']['name'],entity['type'],entity['tail']['name']]]
                     if kv_pairs:
-                            label = ", ".join(["{}: {}".format(k, v) for (k, v) in kv_pairs])
+                        label = ", ".join(["{}: {}".format(k, v) for (k, v) in kv_pairs])
                     if relation_pairs:
                         label = ", ".join(["({},{},{})".format(h,r,t) for (h,r,t) in relation_pairs])
-                except:
-                    print(entities)
-                labels.append(label)
-
+                    labels.append(label)
+                else:
+                    labels.append("[]")
             if self.text_only:
                 model_inputs["labels"] = labels
             else:
@@ -119,11 +99,6 @@ class DataCollatorForUIE:
         return model_inputs
 
 
-
-# "Please list all entity words in the text that fit the category.Output format is [{word1, type1}, {word2, type2}]
-# text: {x}
-# category: [{type：location}, {type: org}, ... , ]
-# Answer: [{word1, type1}, {word2, type2}, ..., {wordN,typeN}]"
 
 # TODO list
 # 1.输出验证

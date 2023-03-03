@@ -28,7 +28,7 @@ from typing import Optional
 import datasets
 import nltk  # Here to have a nice missing dependency error message early on
 import numpy as np
-from datasets.utils import set_progress_bar_enabled
+# from datasets.utils import set_progress_bar_enabled
 from datasets import load_dataset, load_metric
 
 import transformers
@@ -55,7 +55,8 @@ from uie_trainer import UIETrainer, DenserEvalCallback
 
 from compute_metrics import compute_metrics, compute_grouped_metrics
 
-set_progress_bar_enabled(False)
+os.environ['WANDB_DISABLED'] = "True"
+# set_progress_bar_enabled(False)
 logger = logging.getLogger(__name__)
 CURRENT_DIR = os.path.dirname(__file__)
 
@@ -526,8 +527,66 @@ def main():
     num_beams = data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
 
     # TODO
-    # if training_args.do_eval:
-    #     logger.info("*** Evaluate ***")
+    if training_args.do_predict:
+
+        logger.info("*** Evaluate ***")
+        logger.info("*** Loading CheckPoint ***")
+        checkpoint = None
+        if os.path.isdir(training_args.output_dir):
+            checkpoint = get_last_checkpoint(training_args.output_dir)
+        if training_args.resume_from_checkpoint is not None:
+            checkpoint = training_args.resume_from_checkpoint
+
+        model = model.from_pretrained(checkpoint)
+        trainer = UIETrainer(
+            model=model,
+            args=training_args,
+            tokenizer=tokenizer,
+            data_collator=data_collator,
+            compute_metrics=compute_ni_metrics if training_args.predict_with_generate else None,
+            callbacks=[DenserEvalCallback] if training_args.denser_evaluation else None
+        )
+
+        # TODO 加载数据
+        root_dir = r'/workspace/InstructUIE/IE_data/NER_processed'
+        all_data_name = os.listdir(root_dir)
+        for data_name in all_data_name:
+            data_path = os.path.join(root_dir,data_name)
+            raw_datasets = load_dataset(
+                os.path.join(CURRENT_DIR, "uie_dataset_one.py"),
+                data_dir=data_path,
+                cache_dir=model_args.cache_dir,
+                max_num_instances_per_task=data_args.max_num_instances_per_task,
+                max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task
+            )
+            predict_dataset = raw_datasets["test"]
+            if data_args.max_predict_samples is not None:
+                predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
+
+
+            logger.info(f"*** Evaluate {data_name} ***")
+
+            predict_results = trainer.predict(
+                    predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
+                )
+            max_predict_samples = (data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset))
+            metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
+
+            if trainer.is_world_process_zero():
+                if training_args.predict_with_generate:
+                    predictions = tokenizer.batch_decode(
+                        predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
+                    )
+                    predictions = [pred.strip() for pred in predictions]
+                    # output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
+                    # with open(output_prediction_file, "w") as writer:
+                    #     writer.write("\n".join(predictions))
+                    output_prediction_file = os.path.join(training_args.output_dir, f"{data_name}_predicted_examples.jsonl")
+                    with open(output_prediction_file, "w") as fout:
+                        for example, prediction in zip(predict_dataset, predictions):
+                            example["prediction"] = prediction
+                            fout.write(json.dumps(example) + "\n")
+
     #     metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
     #     max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
     #     metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))

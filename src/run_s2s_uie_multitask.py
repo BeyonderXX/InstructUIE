@@ -250,6 +250,7 @@ class NITrainingArguments(Seq2SeqTrainingArguments):
         metadata={"help": "If specifid, the model will do more evaluation at the beginning of training."}
     )
     do_demo: bool = field(default=False, metadata={"help": "Whether to run the model as a demo in the terminal."})
+    do_predict_onebyone: bool = field(default=False, metadata={"help": "Whether to run the model as a demo in the terminal."})
     # evaluation_strategy: Optional[str] = field(
     #     default="epoch",
     #     metadata={"help": "When to evaluate models"}
@@ -495,7 +496,6 @@ def main():
         callbacks=[DenserEvalCallback] if training_args.denser_evaluation else None
     )
 
-    all_metrics = {"run_name": training_args.run_name}
 
     # Training
     # 训练epoch数，按照 num_train_epochs 传入，在trainer中解析
@@ -519,7 +519,6 @@ def main():
         trainer.save_state()
         print(metrics)
 
-        all_metrics.update(metrics)
 
     # Evaluation
     results = {}
@@ -530,112 +529,96 @@ def main():
     )
     num_beams = data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
 
-    # TODO
     if training_args.do_predict:
-
-        logger.info("*** Evaluate ***")
+        logger.info("*** Prediction ***")
         logger.info("*** Loading CheckPoint ***")
         checkpoint = None
         if os.path.isdir(training_args.output_dir):
             checkpoint = get_last_checkpoint(training_args.output_dir)
         if training_args.resume_from_checkpoint is not None:
             checkpoint = training_args.resume_from_checkpoint
-
         model = model.from_pretrained(checkpoint)
         trainer = UIETrainer(
             model=model,
             args=training_args,
             tokenizer=tokenizer,
             data_collator=data_collator,
-            compute_metrics=compute_ni_metrics if training_args.predict_with_generate else None,
-            callbacks=[DenserEvalCallback] if training_args.denser_evaluation else None
         )
 
-        # TODO 加载数据
-        root_dir = r'/workspace/InstructUIE/IE_data/NER_processed'
-        all_data_name = os.listdir(root_dir)
-        for data_name in all_data_name:
-            data_path = os.path.join(root_dir,data_name)
-            raw_datasets = load_dataset(
-                os.path.join(CURRENT_DIR, "uie_dataset_one.py"),
-                data_dir=data_path,
-                cache_dir=model_args.cache_dir,
-                max_num_instances_per_task=data_args.max_num_instances_per_task,
-                max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task
+        if data_args.max_predict_samples is not None:
+            predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
+
+        predict_results = trainer.predict(
+                predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
             )
-            predict_dataset = raw_datasets["test"]
-            if data_args.max_predict_samples is not None:
-                predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
-
-
-            logger.info(f"*** Evaluate {data_name} ***")
-
-            predict_results = trainer.predict(
-                    predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
+        if trainer.is_world_process_zero():
+            if training_args.predict_with_generate:
+                predictions = tokenizer.batch_decode(
+                    predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
                 )
-            max_predict_samples = (data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset))
-            metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
+                predictions = [pred.strip() for pred in predictions]
+                # output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
+                # with open(output_prediction_file, "w") as writer:
+                #     writer.write("\n".join(predictions))
+                output_prediction_file = os.path.join(training_args.output_dir, f"predicted_examples.jsonl")
+                with open(output_prediction_file, "w") as fout:
+                    for example, prediction in zip(predict_dataset, predictions):
+                        example["prediction"] = prediction
+                        fout.write(json.dumps(example) + "\n")
 
-            if trainer.is_world_process_zero():
-                if training_args.predict_with_generate:
-                    predictions = tokenizer.batch_decode(
-                        predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
-                    )
-                    predictions = [pred.strip() for pred in predictions]
-                    # output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
-                    # with open(output_prediction_file, "w") as writer:
-                    #     writer.write("\n".join(predictions))
-                    output_prediction_file = os.path.join(training_args.output_dir, f"{data_name}_predicted_examples.jsonl")
-                    with open(output_prediction_file, "w") as fout:
-                        for example, prediction in zip(predict_dataset, predictions):
-                            example["prediction"] = prediction
-                            fout.write(json.dumps(example) + "\n")
-
-    #     metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
-    #     max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
-    #     metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
+    #TODO  一次处理一个文件
+    # if training_args.do_predict_onebyone:
     #
-    #     trainer.log_metrics("eval", metrics)
-    #     trainer.save_metrics("eval", metrics)
+    #     logger.info("*** Predict one by one ***")
+    #     logger.info("*** Loading CheckPoint ***")
+    #     checkpoint = None
+    #     if os.path.isdir(training_args.output_dir):
+    #         checkpoint = get_last_checkpoint(training_args.output_dir)
+    #     if training_args.resume_from_checkpoint is not None:
+    #         checkpoint = training_args.resume_from_checkpoint
     #
-    #     all_metrics.update(metrics)
-    #
-    # if training_args.do_predict:
-    #     logger.info("*** Predict ***")
-    #
-    #     predict_results = trainer.predict(
-    #         predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
+    #     model = model.from_pretrained(checkpoint)
+    #     trainer = UIETrainer(
+    #         model=model,
+    #         args=training_args,
+    #         tokenizer=tokenizer,
+    #         data_collator=data_collator,
     #     )
-    #     metrics = predict_results.metrics
-    #     max_predict_samples = (
-    #         data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset)
-    #     )
-    #     metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
-    #
-    #     trainer.log(metrics)
-    #     trainer.log_metrics("predict", metrics)
-    #     trainer.save_metrics("predict", metrics)
-    #
-    #     all_metrics.update(metrics)
-    #
-    #     if trainer.is_world_process_zero():
-    #         if training_args.predict_with_generate:
-    #             predictions = tokenizer.batch_decode(
-    #                 predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
+    #     task_catagories = data_args.task_dir.split(',')
+    #     for task_catagory in task_catagories:
+    #         task_path_list = os.path.join(data_args.data_dir,task_catagory)
+    #         for data_name in os.listdir(task_path_list):
+    #             logger.info(f"*** Data name is {data_name} ***")
+    #             data_path = os.path.join(task_path_list,data_name)
+    #             raw_datasets = load_dataset(
+    #                 os.path.join(CURRENT_DIR, "uie_dataset_multitask.py"),
+    #                 data_dir=data_path,
+    #                 task_dir = task_catagory,
+    #                 cache_dir=model_args.cache_dir,
+    #                 max_num_instances_per_task=data_args.max_num_instances_per_task,
+    #                 max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task
     #             )
-    #             predictions = [pred.strip() for pred in predictions]
-    #             # output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
-    #             # with open(output_prediction_file, "w") as writer:
-    #             #     writer.write("\n".join(predictions))
-    #             output_prediction_file = os.path.join(training_args.output_dir, "predicted_examples.jsonl")
-    #             with open(output_prediction_file, "w") as fout:
-    #                 for example, prediction in zip(predict_dataset, predictions):
-    #                     example["prediction"] = prediction
-    #                     fout.write(json.dumps(example) + "\n")
-
-    if (training_args.do_train or training_args.do_eval or training_args.do_predict) and trainer.is_world_process_zero():
-        with open(os.path.join(training_args.output_dir, "metrics.json"), "w") as fout:
-            fout.write(json.dumps(all_metrics))
+    #             predict_dataset = raw_datasets["test"]
+    #
+    #             predict_results = trainer.predict(
+    #                     predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
+    #                 )
+    #
+    #             logger.info(f"*** Evaluate {data_name} ***")
+    #             if trainer.is_world_process_zero():
+    #                 if training_args.predict_with_generate:
+    #                     predictions = tokenizer.batch_decode(
+    #                         predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
+    #                     )
+    #                     predictions = [pred.strip() for pred in predictions]
+    #                     # output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
+    #                     # with open(output_prediction_file, "w") as writer:
+    #                     #     writer.write("\n".join(predictions))
+    #                     output_prediction_file = os.path.join(training_args.output_dir, f"{data_name}_predicted_examples.jsonl")
+    #                     with open(output_prediction_file, "w") as fout:
+    #                         for example, prediction in zip(predict_dataset, predictions):
+    #                             example["prediction"] = prediction
+    #                             fout.write(json.dumps(example) + "\n")
 
     if training_args.do_demo:
         logger.info("Serving the model as a demo...")

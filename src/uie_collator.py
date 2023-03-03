@@ -76,7 +76,9 @@ class DataCollatorForUIE:
         if "entities" in batch[0]["Instance"] and batch[0]["Instance"]["entities"]:
             # Randomly select one reference if multiple are provided.
             # 生成，NLU不需要
-            jsons = [json.loads(ex["Instance"]["entities"]) for ex in batch]
+            # print([ex["Instance"]["entities"] for ex in batch])
+            jsons = [json.loads(ex["Instance"]["entities"].replace("'",'"')) for ex in batch]
+
             labels = []
             for entities in jsons:
                 kv_pairs = [[entity['type'], entity['name']] for entity in entities]
