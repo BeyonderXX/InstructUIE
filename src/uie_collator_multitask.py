@@ -60,18 +60,31 @@ class DataCollatorForUIE:
             labels = []
             for entities in jsons:
                 if entities:
-                    kv_pairs = None
-                    relation_pairs = None
+                    kv_pairs = []
+                    relation_pairs = []
+                    event_pairs = []
                     for entity in entities:
                         #分别处理NER和RE
-                        if 'type' in entity and 'name' in entity:
-                            kv_pairs = [[entity['type'], entity['name']]]
-                        if 'head' in entity and 'type' in entity and 'tail' in entity:
-                            relation_pairs = [[entity['head']['name'],entity['type'],entity['tail']['name']]]
-                    if kv_pairs:
+                        if 'type' in entity and 'trigger' in entity and 'arguments' in entity:
+                            event_type = entity['type']
+                            event_trigger = entity['trigger']
+                            event_arguments = ["(name:{},role:{})".format(argument['name'], argument['role']) for argument in entity['arguments']]
+                            event_pairs_ = [event_type,event_trigger,event_arguments]
+                            event_pairs.append(event_pairs_)
+                        elif 'type' in entity and 'name' in entity:
+                            kv_pairs_ = [entity['type'], entity['name']]
+                            kv_pairs.append(kv_pairs_)
+
+                        elif 'head' in entity and 'type' in entity and 'tail' in entity:
+                            relation_pairs_ = [entity['head']['name'],entity['type'],entity['tail']['name']]
+                            relation_pairs.append(relation_pairs_)
+
+                    if len(event_pairs)>0:
+                        label = ", ".join(["(type:{}, trigger:{}, arguments:".format(type, trigger)+", ".join(arguments)+")" for (type, trigger, arguments) in event_pairs])
+                    elif len(kv_pairs)>0:
                         label = ", ".join(["{}: {}".format(k, v) for (k, v) in kv_pairs])
-                    if relation_pairs:
-                        label = ", ".join(["({},{},{})".format(h,r,t) for (h,r,t) in relation_pairs])
+                    elif len(relation_pairs)>0:
+                        label = ", ".join(["({}, {}, {})".format(h,r,t) for (h,r,t) in relation_pairs])
                     labels.append(label)
                 else:
                     labels.append("[]")

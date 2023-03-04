@@ -132,31 +132,55 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 task_file_path = os.path.join(task_file_path_, subset + ".json")
 
                 id = 0
-
                 instruction_list = self.config.prompt_dict[task_catagory]
                 instruction = random.choice(instruction_list)
+                labels_path = os.path.join(task_file_path_, "labels.json")
 
+                with open(labels_path, encoding="utf-8") as labels_f:
+                    labels_json = json.load(labels_f)
+                    labels_str = ','.join(labels_json)
+                    instruction += "Option:" + labels_str + " \n " + "Answer: "
 
-                if task_catagory == 'RE':
-                    labels_path = os.path.join(task_file_path_, "label.json")
+                with open(task_file_path, encoding="utf-8") as task_f:
+                    s = task_f.read()
+                    task_data_list = json.loads(s)
+                    sample_template = {"Task": task_file_name}
+                    sample_template["Categories"] = task_catagory
+                    sample_template["instruction"] = instruction
+                    instances = task_data_list
+                if max_num_instances_per_task is not None and max_num_instances_per_task >= 0:
+                    random.shuffle(instances)
+                    instances = instances[:max_num_instances_per_task]
 
+                if task_catagory == 'EE':
                     with open(labels_path, encoding="utf-8") as labels_f:
                         labels_json = json.load(labels_f)
-                        labels_str = ','.join(labels_json)
+                        # labels_str = ','.join(labels_json)
+                        labels_str = f'Event type: {labels_json[0]}, Arguments type: {labels_json[1]}'
                         instruction += "Option:" + labels_str + " \n " + "Answer: "
-
-                    with open(task_file_path, encoding="utf-8") as task_f:
-                        s = task_f.read()
-                        task_data_list = json.loads(s)
-                        sample_template = {"Task": task_file_name}
-                        sample_template["Categories"] = task_catagory
                         sample_template["instruction"] = instruction
-                        instances = task_data_list
 
-                    if max_num_instances_per_task is not None and max_num_instances_per_task >= 0:
-                        random.shuffle(instances)
-                        instances = instances[:max_num_instances_per_task]
+                    for idx, instance in enumerate(instances):
+                        example = sample_template.copy()
+                        example["id"] = str(idx)
+                        # 解决引号问题
+                        for k, event in enumerate(instance['events']):
+                            instance['events'][k]['trigger'] = event['trigger'].replace("'", "#$%#")
+                            instance['events'][k]['type'] = event['type'].replace("'", "#$%#")
 
+                            for k1, argument in enumerate(event['arguments']):
+                                instance['events'][k]['arguments'][k1]['name'] = argument['name'].replace("'", "#$%#")
+                                instance['events'][k]['arguments'][k1]['role'] = argument['role'].replace("'", "#$%#")
+
+                        example["Instance"] = {
+                            "sentence": instance['sentence'],
+                            "entities": json.dumps(instance['events'])
+                        }
+                        id += 1
+
+                        yield f"{task_file_name}##{idx}", example
+
+                if task_catagory == 'RE':
                     for idx, instance in enumerate(instances):
                         example = sample_template.copy()
                         example["id"] = str(idx)
@@ -172,39 +196,20 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
                         yield f"{task_file_name}##{idx}", example
 
-                elif task_catagory == 'NER':
-                    labels_path = os.path.join(task_file_path_, "labels.json")
+                if task_catagory == 'NER':
+                    for idx, instance in enumerate(instances):
+                        example = sample_template.copy()
+                        example["id"] = str(idx)
+                        for k, entity in enumerate(instance['entities']):
+                            instance['entities'][k]['type'] = entity['type'].replace("'", "#$%#")
+                            instance['entities'][k]['name'] = entity['name'].replace("'", "#$%#")
+                        example["Instance"] = {
+                            "sentence": instance['sentence'],
+                            "entities": json.dumps(instance['entities'])
+                        }
+                        id += 1
 
-                    with open(labels_path, encoding="utf-8") as labels_f:
-                        labels_json = json.load(labels_f)
-                        labels_str = ','.join(labels_json)
-                        instruction += "Option:" + labels_str + " \n " + "Answer: "
-
-                    with open(task_file_path, encoding="utf-8") as task_f:
-                        s = task_f.read()
-                        task_data_list = json.loads(s)
-                        sample_template = {"Task": task_file_name}
-                        sample_template["Categories"] = task_catagory
-                        sample_template["instruction"] = instruction
-                        instances = task_data_list
-
-                        if max_num_instances_per_task is not None and max_num_instances_per_task >= 0:
-                            random.shuffle(instances)
-                            instances = instances[:max_num_instances_per_task]
-
-                        for idx, instance in enumerate(instances):
-                            example = sample_template.copy()
-                            example["id"] = str(idx)
-                            for k, entity in enumerate(instance['entities']):
-                                instance['entities'][k]['type'] = entity['type'].replace("'", "#$%#")
-                                instance['entities'][k]['name'] = entity['name'].replace("'", "#$%#")
-                            example["Instance"] = {
-                                "sentence": instance['sentence'],
-                                "entities": json.dumps(instance['entities'])
-                            }
-                            id += 1
-
-                            yield f"{task_file_name}##{idx}", example
+                        yield f"{task_file_name}##{idx}", example
 
 
 
@@ -213,12 +218,13 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
 def load_examples(path=None, task_dir = None , max_num_instances_per_task=None, subset=None):
     """Yields examples."""
-    with open(r'D:\pycharmProject\GDUAP\test_dataset\prompt.json', 'r') as f:
+    with open(r'/workspace/InstructUIE/IE_data/prompt.json', 'r') as f:
         prompt_dict = json.loads(f.read())
 
+    """Yields examples."""
     logger.info(f"Generating tasks from = {path}")
     assert os.path.exists(path)
-
+    task_dir = task_dir.split(',')
     for task_catagory in task_dir:
         task_path = os.path.join(path, task_catagory)
         for task_file_name in os.listdir(task_path):
@@ -226,77 +232,88 @@ def load_examples(path=None, task_dir = None , max_num_instances_per_task=None, 
             task_file_path = os.path.join(task_file_path_, subset + ".json")
 
             id = 0
-
             instruction_list = prompt_dict[task_catagory]
             instruction = random.choice(instruction_list)
+            labels_path = os.path.join(task_file_path_, "labels.json")
 
-            if task_catagory == 'RE':
-                labels_path = os.path.join(task_file_path_, "label.json")
+            with open(labels_path, encoding="utf-8") as labels_f:
+                labels_json = json.load(labels_f)
+                labels_str = ','.join(labels_json)
+                instruction += "Option:" + labels_str + " \n " + "Answer: "
 
+            with open(task_file_path, encoding="utf-8") as task_f:
+                s = task_f.read()
+                task_data_list = json.loads(s)
+                sample_template = {"Task": task_file_name}
+                sample_template["Categories"] = task_catagory
+                sample_template["instruction"] = instruction
+                instances = task_data_list
+            if max_num_instances_per_task is not None and max_num_instances_per_task >= 0:
+                random.shuffle(instances)
+                instances = instances[:max_num_instances_per_task]
+
+            if task_catagory == 'EE':
                 with open(labels_path, encoding="utf-8") as labels_f:
                     labels_json = json.load(labels_f)
-                    labels_str = ','.join(labels_json)
+                    # labels_str = ','.join(labels_json)
+                    labels_str = f'Event type: {labels_json[0]}, Arguments type: {labels_json[1]}'
                     instruction += "Option:" + labels_str + " \n " + "Answer: "
-
-                with open(task_file_path, encoding="utf-8") as task_f:
-                    s = task_f.read()
-                    task_data_list = json.loads(s)
-                    sample_template = {"Task": task_file_name}
-                    sample_template["Categories"] = task_catagory
                     sample_template["instruction"] = instruction
-                    instances = task_data_list
-
-                if max_num_instances_per_task is not None and max_num_instances_per_task >= 0:
-                    random.shuffle(instances)
-                    instances = instances[:max_num_instances_per_task]
 
                 for idx, instance in enumerate(instances):
                     example = sample_template.copy()
-                    example["id"] = idx
+                    example["id"] = str(idx)
+                    # 解决引号问题
+                    for k, event in enumerate(instance['events']):
+                        instance['events'][k]['trigger'] = event['trigger'].replace("'", "#$%#")
+                        instance['events'][k]['type'] = event['type'].replace("'", "#$%#")
+
+                        for k1, argument in enumerate(event['arguments']):
+                            instance['events'][k]['arguments'][k1]['name'] = argument['name'].replace("'", "#$%#")
+                            instance['events'][k]['arguments'][k1]['role'] = argument['role'].replace("'", "#$%#")
+
+                    example["Instance"] = {
+                        "sentence": instance['sentence'],
+                        "entities": json.dumps(instance['events'])
+                    }
+                    id += 1
+
+                    yield f"{task_file_name}##{idx}", example
+
+            if task_catagory == 'RE':
+                for idx, instance in enumerate(instances):
+                    example = sample_template.copy()
+                    example["id"] = str(idx)
+                    for k, entity in enumerate(instance['relations']):
+                        instance['relations'][k]['head']['name'] = entity['head']['name'].replace("'", "#$%#")
+                        instance['relations'][k]['tail']['name'] = entity['tail']['name'].replace("'", "#$%#")
+                        instance['relations'][k]['type'] = entity['type'].replace("'", "#$%#")
                     example["Instance"] = {
                         "sentence": instance['sentence'],
                         "entities": json.dumps(instance['relations'])
                     }
                     id += 1
-                    print(task_file_name)
+
                     yield f"{task_file_name}##{idx}", example
 
-            elif task_catagory == 'NER':
-                labels_path = os.path.join(task_file_path_, "labels.json")
+            if task_catagory == 'NER':
+                for idx, instance in enumerate(instances):
+                    example = sample_template.copy()
+                    example["id"] = str(idx)
+                    for k, entity in enumerate(instance['entities']):
+                        instance['entities'][k]['type'] = entity['type'].replace("'", "#$%#")
+                        instance['entities'][k]['name'] = entity['name'].replace("'", "#$%#")
+                    example["Instance"] = {
+                        "sentence": instance['sentence'],
+                        "entities": json.dumps(instance['entities'])
+                    }
+                    id += 1
 
-                with open(labels_path, encoding="utf-8") as labels_f:
-                    labels_json = json.load(labels_f)
-                    labels_str = ','.join(labels_json)
-                    instruction += "Option:" + labels_str + " \n " + "Answer: "
-
-                with open(task_file_path, encoding="utf-8") as task_f:
-                    s = task_f.read()
-                    task_data_list = json.loads(s)
-                    sample_template = {"Task": task_file_name}
-                    sample_template["Categories"] = task_catagory
-                    sample_template["instruction"] = instruction
-                    instances = task_data_list
-
-                    if max_num_instances_per_task is not None and max_num_instances_per_task >= 0:
-                        random.shuffle(instances)
-                        instances = instances[:max_num_instances_per_task]
-
-                    for idx, instance in enumerate(instances):
-                        example = sample_template.copy()
-                        example["id"] = idx
-                        example["Instance"] = {
-                            "sentence": instance['sentence'],
-                            "entities": json.dumps(instance['entities'])
-                        }
-                        id += 1
-                        print(task_file_name)
-
-                        yield f"{task_file_name}##{idx}", example
-
+                    yield f"{task_file_name}##{idx}", example
 
 if __name__ == "__main__":
-    sample_genor = load_examples(path=r'D:\pycharmProject\GDUAP\test_dataset\IE_data',task_dir=['RE','NER'],
-                                 max_num_instances_per_task=20, subset='train')
+    sample_genor = load_examples(path=r'/workspace/original',task_dir=','.join(['EE']),
+                                 max_num_instances_per_task=5, subset='train')
 
     id = 0
     for sample in sample_genor:

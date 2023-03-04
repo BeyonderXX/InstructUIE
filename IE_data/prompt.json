@@ -14,7 +14,7 @@
     "Please find all the entity words associated with the category in the given text.Output format is [(word1, type1), (word2, type2)]. \nText: {0} \n",
     "Please tell me all the entity words in the text that belong to a given category.Output format is [(word1, type1), (word2, type2)] \nText: {0} \n"
   ],
-  "EVENT": [
+  "EE": [
     "Locate the role in the text that participated in the event based on the event type and return it in the event list. \n Text:{0} \n",
     "Extract the event information in the text and return them in the event list. \nText:{0} \n"
   ]
