@@ -25,8 +25,9 @@ import datasets
 logger = datasets.logging.get_logger(__name__)
 
 
+# TODO，设计接口，支持config文件配置，支持few-shot，zero-shot
 class UIEConfig(datasets.BuilderConfig):
-    def __init__(self, *args, task_dir = None, prompt_dir= None, max_num_instances_per_task=None, max_num_instances_per_eval_task=None, **kwargs):
+    def __init__(self, *args, task_dir=None, prompt_dir=None, max_num_instances_per_task=None, max_num_instances_per_eval_task=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.task_dir: str = task_dir
         self.max_num_instances_per_task: int = max_num_instances_per_task
@@ -72,6 +73,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                     #     "input": datasets.Value("string"),
                     #     "output": [datasets.Value("string")]
                     # }],
+                    # TODO， 修改命名
                     "Instance": {
                         "sentence": datasets.Value("string"),
                         "entities": datasets.Value("string")
@@ -152,6 +154,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                     random.shuffle(instances)
                     instances = instances[:max_num_instances_per_task]
 
+                # TODO， task 处理接口封装
                 if task_catagory == 'EE':
                     with open(labels_path, encoding="utf-8") as labels_f:
                         labels_json = json.load(labels_f)
@@ -215,7 +218,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
 
 
-
+# test program
 def load_examples(path=None, task_dir = None , max_num_instances_per_task=None, subset=None):
     """Yields examples."""
     with open(r'/workspace/InstructUIE/IE_data/prompt.json', 'r') as f:

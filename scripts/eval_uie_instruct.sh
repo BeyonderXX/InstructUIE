@@ -6,6 +6,8 @@ export TRANSFORMERS_CACHE=/root/.cache/huggingface
 
 port=$(shuf -i25000-30000 -n1)
 
+# TODO，增加 不同ckpt & 不同环境 下的运行说明
+
 # 3090 * 8 on t5-700M
 #deepspeed --master_port $port src/run_s2s_uie.py \
 #    --do_train \

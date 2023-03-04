@@ -294,6 +294,7 @@ def main():
     )
     logger.info(f"Training/evaluation parameters {training_args}")
 
+    # TODO, add other model support
     if data_args.source_prefix is None and model_args.model_name_or_path in [
         "t5-small",
         "t5-base",
@@ -306,8 +307,8 @@ def main():
             "`--source_prefix 'summarize: ' `"
         )
 
-    # TODO, wx, 连同训练参数，优化器状态一起存储
     # Detecting last checkpoint.
+    # load ckpt and lr scheduler, keep gpus num consistency
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
@@ -341,6 +342,8 @@ def main():
     # Distributed training:
     # The .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
+    # TODO, Bloomz, codegen, LLaMA
+    # TODO, align tokenizer with model, default gpt2
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
@@ -365,6 +368,7 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
+    # Why use lang to set decode start token?
     if model.config.decoder_start_token_id is None and isinstance(tokenizer, (MBartTokenizer, MBartTokenizerFast)):
         if isinstance(tokenizer, MBartTokenizer):
             model.config.decoder_start_token_id = tokenizer.lang_code_to_id[data_args.lang]
@@ -392,23 +396,6 @@ def main():
                 f" position encodings. Consider either reducing `--max_source_length` to {model.config.max_position_embeddings} or to automatically "
                 "resize the model's position encodings by passing `--resize_position_embeddings`."
             )
-
-    # TODO, 考虑多语言
-    if isinstance(tokenizer, tuple(MULTILINGUAL_TOKENIZERS)):
-        assert (
-            data_args.lang is not None
-        ), f"{tokenizer.__class__.__name__} is a multilingual tokenizer which requires --lang argument"
-
-        tokenizer.src_lang = data_args.lang
-        tokenizer.tgt_lang = data_args.lang
-
-        # For multilingual translation models like mBART-50 and M2M100 we need to force the target language token
-        # as the first generated token. We ask the user to explicitly provide this as --forced_bos_token argument.
-        forced_bos_token_id = (
-            tokenizer.lang_code_to_id[data_args.forced_bos_token] if data_args.forced_bos_token is not None else None
-        )
-        model.config.forced_bos_token_id = forced_bos_token_id
-
 
     if training_args.label_smoothing_factor > 0 and not hasattr(model, "prepare_decoder_input_ids_from_labels"):
         logger.warning(
@@ -459,7 +446,6 @@ def main():
     training_args.remove_unused_columns = False 
 
     # Metric
-
     def compute_ni_metrics(dataset, preds, save_prefix=None):
         decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
         references = [e["Instance"]["output"] for e in dataset]

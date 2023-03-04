@@ -24,6 +24,8 @@ class DataCollatorForUIE:
     tk_instruct: bool = False
     text_only: bool = False
 
+    # tk_instruct 决定是否使用全部的instruct做训练
+
     def __call__(self, batch, return_tensors=None):
 
         if return_tensors is None:
@@ -54,8 +56,9 @@ class DataCollatorForUIE:
                 truncation=True,
                 pad_to_multiple_of=self.pad_to_multiple_of)
 
+        # TODO， 修改 key
         if "entities" in batch[0]["Instance"] and batch[0]["Instance"]["entities"]:
-            jsons = [json.loads(ex["Instance"]["entities"].replace("'",'"').replace("#$%#","'")) for ex in batch]
+            jsons = [json.loads(ex["Instance"]["entities"].replace("'", '"').replace("#$%#", "'")) for ex in batch]
 
             labels = []
             for entities in jsons:
@@ -63,8 +66,9 @@ class DataCollatorForUIE:
                     kv_pairs = []
                     relation_pairs = []
                     event_pairs = []
+                    # TODO， 针对任务分别封装，仅返回label结果
                     for entity in entities:
-                        #分别处理NER和RE
+                        # 分别处理NER和RE
                         if 'type' in entity and 'trigger' in entity and 'arguments' in entity:
                             event_type = entity['type']
                             event_trigger = entity['trigger']
@@ -88,6 +92,7 @@ class DataCollatorForUIE:
                     labels.append(label)
                 else:
                     labels.append("[]")
+
             if self.text_only:
                 model_inputs["labels"] = labels
             else:
