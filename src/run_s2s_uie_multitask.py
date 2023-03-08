@@ -28,7 +28,7 @@ from typing import Optional
 import datasets
 import nltk  # Here to have a nice missing dependency error message early on
 import numpy as np
-from datasets.utils import set_progress_bar_enabled
+# from datasets.utils import set_progress_bar_enabled
 from datasets import load_dataset, load_metric
 
 import transformers
@@ -49,11 +49,14 @@ from transformers import (
 )
 from transformers.file_utils import is_offline_mode
 from transformers.trainer_utils import get_last_checkpoint
-from ni_collator import DataCollatorForNI
-from ni_trainer import NITrainer, DenserEvalCallback
+from uie_collator_multitask import DataCollatorForUIE
+# todo
+from uie_trainer import UIETrainer, DenserEvalCallback
+
 from compute_metrics import compute_metrics, compute_grouped_metrics
 
-set_progress_bar_enabled(False)
+os.environ['WANDB_DISABLED'] = "True"
+# set_progress_bar_enabled(False)
 logger = logging.getLogger(__name__)
 CURRENT_DIR = os.path.dirname(__file__)
 
@@ -127,6 +130,9 @@ class DataTrainingArguments:
     task_dir: str = field(
         default=None, metadata={"help": "The directory for saving the NaturalInstructions tasks json files."}
     )
+    prompt_dir: str = field(
+        default=None, metadata={"help": "The directory for saving the NaturalInstructions tasks json files."}
+    )
     overwrite_cache: bool = field(
         default=False, metadata={"help": "Overwrite the cached training and evaluation sets"}
     )
@@ -135,7 +141,7 @@ class DataTrainingArguments:
         metadata={"help": "The number of processes to use for the preprocessing."},
     )
     max_source_length: Optional[int] = field(
-        default=1024,
+        default=512,
         metadata={
             "help": "The maximum total input sequence length after tokenization. Sequences longer "
             "than this will be truncated, sequences shorter will be padded."
@@ -157,10 +163,10 @@ class DataTrainingArguments:
         },
     )
     max_num_instances_per_task: int = field(
-        default=None, metadata={"help": "The maximum number of instances we will consider for each training task."}
+        default=10000, metadata={"help": "The maximum number of instances we will consider for each training task."}
     )
     max_num_instances_per_eval_task: int = field(
-        default=500, metadata={"help": "The maximum number of instances we will consider for each validation/test task."}
+        default=200, metadata={"help": "The maximum number of instances we will consider for each validation/test task."}
     )
     max_train_samples: Optional[int] = field(
         default=None,
@@ -232,7 +238,7 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "tk_instruct will train a model combining all valid instruction encodings. This will overwrite the other settings about instruction encoding."} 
     )
-    
+
     def __post_init__(self):
         pass
 
@@ -244,6 +250,15 @@ class NITrainingArguments(Seq2SeqTrainingArguments):
         metadata={"help": "If specifid, the model will do more evaluation at the beginning of training."}
     )
     do_demo: bool = field(default=False, metadata={"help": "Whether to run the model as a demo in the terminal."})
+    do_predict_onebyone: bool = field(default=False, metadata={"help": "Whether to run the model as a demo in the terminal."})
+    # evaluation_strategy: Optional[str] = field(
+    #     default="epoch",
+    #     metadata={"help": "When to evaluate models"}
+    # )
+    save_strategy: Optional[str] = field(
+        default="epoch",
+        metadata={"help": "When to save models."}
+    )
 
 
 def main():
@@ -279,6 +294,7 @@ def main():
     )
     logger.info(f"Training/evaluation parameters {training_args}")
 
+    # TODO, add other model support
     if data_args.source_prefix is None and model_args.model_name_or_path in [
         "t5-small",
         "t5-base",
@@ -291,8 +307,8 @@ def main():
             "`--source_prefix 'summarize: ' `"
         )
 
-    # TODO, wx, 连同训练参数，优化器状态一起存储
     # Detecting last checkpoint.
+    # load ckpt and lr scheduler, keep gpus num consistency
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
@@ -312,9 +328,10 @@ def main():
 
     # Get the NaturalInstructions dataset
     raw_datasets = load_dataset(
-        os.path.join(CURRENT_DIR, "ni_dataset.py"),
+        os.path.join(CURRENT_DIR, "uie_dataset_multitask.py"),
         data_dir=data_args.data_dir, 
-        task_dir=data_args.task_dir, 
+        task_dir=data_args.task_dir,
+        prompt_dir=data_args.prompt_dir,
         cache_dir=model_args.cache_dir,
         max_num_instances_per_task=data_args.max_num_instances_per_task,
         max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task
@@ -325,6 +342,8 @@ def main():
     # Distributed training:
     # The .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
+    # TODO, Bloomz, codegen, LLaMA
+    # TODO, align tokenizer with model, default gpt2
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
@@ -349,6 +368,7 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
+    # Why use lang to set decode start token?
     if model.config.decoder_start_token_id is None and isinstance(tokenizer, (MBartTokenizer, MBartTokenizerFast)):
         if isinstance(tokenizer, MBartTokenizer):
             model.config.decoder_start_token_id = tokenizer.lang_code_to_id[data_args.lang]
@@ -376,22 +396,6 @@ def main():
                 f" position encodings. Consider either reducing `--max_source_length` to {model.config.max_position_embeddings} or to automatically "
                 "resize the model's position encodings by passing `--resize_position_embeddings`."
             )
-
-    if isinstance(tokenizer, tuple(MULTILINGUAL_TOKENIZERS)):
-        assert (
-            data_args.lang is not None
-        ), f"{tokenizer.__class__.__name__} is a multilingual tokenizer which requires --lang argument"
-
-        tokenizer.src_lang = data_args.lang
-        tokenizer.tgt_lang = data_args.lang
-
-        # For multilingual translation models like mBART-50 and M2M100 we need to force the target language token
-        # as the first generated token. We ask the user to explicitly provide this as --forced_bos_token argument.
-        forced_bos_token_id = (
-            tokenizer.lang_code_to_id[data_args.forced_bos_token] if data_args.forced_bos_token is not None else None
-        )
-        model.config.forced_bos_token_id = forced_bos_token_id
-
 
     if training_args.label_smoothing_factor > 0 and not hasattr(model, "prepare_decoder_input_ids_from_labels"):
         logger.warning(
@@ -422,7 +426,7 @@ def main():
 
     # Data collator
     label_pad_token_id = -100 if data_args.ignore_pad_token_for_loss else tokenizer.pad_token_id
-    data_collator = DataCollatorForNI(
+    data_collator = DataCollatorForUIE(
         tokenizer,
         model=model,
         padding="max_length" if data_args.pad_to_max_length else "longest",
@@ -442,7 +446,6 @@ def main():
     training_args.remove_unused_columns = False 
 
     # Metric
-
     def compute_ni_metrics(dataset, preds, save_prefix=None):
         decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
         references = [e["Instance"]["output"] for e in dataset]
@@ -466,8 +469,9 @@ def main():
                     }) + "\n")
         return result
 
+    # TODO
     # Initialize our Trainer
-    trainer = NITrainer(
+    trainer = UIETrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
@@ -478,15 +482,15 @@ def main():
         callbacks=[DenserEvalCallback] if training_args.denser_evaluation else None
     )
 
-    all_metrics = {"run_name": training_args.run_name}
 
     # Training
+    # 训练epoch数，按照 num_train_epochs 传入，在trainer中解析
     if training_args.do_train:
         checkpoint = None
-        if training_args.resume_from_checkpoint is not None:
-            checkpoint = training_args.resume_from_checkpoint
-        elif last_checkpoint is not None:
-            checkpoint = last_checkpoint
+        # if training_args.resume_from_checkpoint is not None:
+        #     checkpoint = training_args.resume_from_checkpoint
+        # elif last_checkpoint is not None:
+        #     checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
@@ -499,8 +503,8 @@ def main():
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
         trainer.save_state()
+        print(metrics)
 
-        all_metrics.update(metrics)
 
     # Evaluation
     results = {}
@@ -511,35 +515,28 @@ def main():
     )
     num_beams = data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
 
-    if training_args.do_eval:
-        logger.info("*** Evaluate ***")
-        metrics = trainer.evaluate(max_length=max_length, num_beams=num_beams, metric_key_prefix="eval")
-        max_eval_samples = data_args.max_eval_samples if data_args.max_eval_samples is not None else len(eval_dataset)
-        metrics["eval_samples"] = min(max_eval_samples, len(eval_dataset))
-
-        trainer.log_metrics("eval", metrics)
-        trainer.save_metrics("eval", metrics)
-
-        all_metrics.update(metrics)
-
     if training_args.do_predict:
-        logger.info("*** Predict ***")
+        logger.info("*** Prediction ***")
+        logger.info("*** Loading CheckPoint ***")
+        checkpoint = None
+        if os.path.isdir(training_args.output_dir):
+            checkpoint = get_last_checkpoint(training_args.output_dir)
+        if training_args.resume_from_checkpoint is not None:
+            checkpoint = training_args.resume_from_checkpoint
+        model = model.from_pretrained(checkpoint)
+        trainer = UIETrainer(
+            model=model,
+            args=training_args,
+            tokenizer=tokenizer,
+            data_collator=data_collator,
+        )
+
+        if data_args.max_predict_samples is not None:
+            predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
 
         predict_results = trainer.predict(
-            predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
-        )
-        metrics = predict_results.metrics
-        max_predict_samples = (
-            data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset)
-        )
-        metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
-
-        trainer.log(metrics)
-        trainer.log_metrics("predict", metrics)
-        trainer.save_metrics("predict", metrics)
-
-        all_metrics.update(metrics)
-
+                predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
+            )
         if trainer.is_world_process_zero():
             if training_args.predict_with_generate:
                 predictions = tokenizer.batch_decode(
@@ -549,15 +546,65 @@ def main():
                 # output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
                 # with open(output_prediction_file, "w") as writer:
                 #     writer.write("\n".join(predictions))
-                output_prediction_file = os.path.join(training_args.output_dir, "predicted_examples.jsonl")
+                output_prediction_file = os.path.join(training_args.output_dir, f"predicted_examples.jsonl")
                 with open(output_prediction_file, "w") as fout:
                     for example, prediction in zip(predict_dataset, predictions):
                         example["prediction"] = prediction
                         fout.write(json.dumps(example) + "\n")
 
-    if (training_args.do_train or training_args.do_eval or training_args.do_predict) and trainer.is_world_process_zero():
-        with open(os.path.join(training_args.output_dir, "metrics.json"), "w") as fout:
-            fout.write(json.dumps(all_metrics))
+    #TODO  一次处理一个文件
+    # if training_args.do_predict_onebyone:
+    #
+    #     logger.info("*** Predict one by one ***")
+    #     logger.info("*** Loading CheckPoint ***")
+    #     checkpoint = None
+    #     if os.path.isdir(training_args.output_dir):
+    #         checkpoint = get_last_checkpoint(training_args.output_dir)
+    #     if training_args.resume_from_checkpoint is not None:
+    #         checkpoint = training_args.resume_from_checkpoint
+    #
+    #     model = model.from_pretrained(checkpoint)
+    #     trainer = UIETrainer(
+    #         model=model,
+    #         args=training_args,
+    #         tokenizer=tokenizer,
+    #         data_collator=data_collator,
+    #     )
+    #     task_catagories = data_args.task_dir.split(',')
+    #     for task_catagory in task_catagories:
+    #         task_path_list = os.path.join(data_args.data_dir,task_catagory)
+    #         for data_name in os.listdir(task_path_list):
+    #             logger.info(f"*** Data name is {data_name} ***")
+    #             data_path = os.path.join(task_path_list,data_name)
+    #             raw_datasets = load_dataset(
+    #                 os.path.join(CURRENT_DIR, "uie_dataset_multitask.py"),
+    #                 data_dir=data_path,
+    #                 task_dir = task_catagory,
+    #                 cache_dir=model_args.cache_dir,
+    #                 max_num_instances_per_task=data_args.max_num_instances_per_task,
+    #                 max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task
+    #             )
+    #             predict_dataset = raw_datasets["test"]
+    #
+    #             predict_results = trainer.predict(
+    #                     predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
+    #                 )
+    #
+    #             logger.info(f"*** Evaluate {data_name} ***")
+    #             if trainer.is_world_process_zero():
+    #                 if training_args.predict_with_generate:
+    #                     predictions = tokenizer.batch_decode(
+    #                         predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
+    #                     )
+    #                     predictions = [pred.strip() for pred in predictions]
+    #                     # output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
+    #                     # with open(output_prediction_file, "w") as writer:
+    #                     #     writer.write("\n".join(predictions))
+    #                     output_prediction_file = os.path.join(training_args.output_dir, f"{data_name}_predicted_examples.jsonl")
+    #                     with open(output_prediction_file, "w") as fout:
+    #                         for example, prediction in zip(predict_dataset, predictions):
+    #                             example["prediction"] = prediction
+    #                             fout.write(json.dumps(example) + "\n")
 
     if training_args.do_demo:
         logger.info("Serving the model as a demo...")

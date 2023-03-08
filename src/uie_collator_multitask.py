@@ -24,6 +24,8 @@ class DataCollatorForUIE:
     tk_instruct: bool = False
     text_only: bool = False
 
+    # tk_instruct 决定是否使用全部的instruct做训练
+
     def __call__(self, batch, return_tensors=None):
 
         if return_tensors is None:
@@ -31,28 +33,9 @@ class DataCollatorForUIE:
 
         sources = []
         for instance in batch:
-            # task definition 何时加载的？
-            # Done, 目前在loader中加载json
 
-            # add the input first.
             task_input = instance["instruction"]
             task_input = task_input.format(instance['Instance']['sentence'])
-
-            # TODO，方便模型识别数据集
-            # task_name = ""
-            # if add_task_name:
-            #     task_name += instance["Task"] + ". "
-
-            # TODO，测试，原论文结论貌似没用
-            # definition = ""
-            # if add_task_definition:
-            #     if isinstance(instance["Definition"], list):
-            #         definition = "Definition: " + instance["Definition"][0].strip()  # TODO: should we use <Definition>?
-            #     else:
-            #         definition = "Definition: " + instance["Definition"].strip()
-            #     if not definition[-1] in string.punctuation:
-            #         definition += "."
-            #     definition += "\n\n"
 
             source = task_input
             tokenized_source = self.tokenizer(source)["input_ids"]
@@ -73,20 +56,46 @@ class DataCollatorForUIE:
                 truncation=True,
                 pad_to_multiple_of=self.pad_to_multiple_of)
 
+        # TODO， 修改 key
         if "entities" in batch[0]["Instance"] and batch[0]["Instance"]["entities"]:
-            # Randomly select one reference if multiple are provided.
-            # 生成，NLU不需要
-            jsons = [json.loads(ex["Instance"]["entities"]) for ex in batch]
+            jsons = [json.loads(ex["Instance"]["entities"].replace("'", '"').replace("#$%#", "'")) for ex in batch]
+
             labels = []
             for entities in jsons:
-                kv_pairs = [[entity['type'], entity['name']] for entity in entities]
-                kv_string = ", ".join(["{}: {}".format(k, v) for (k, v) in kv_pairs])
-                labels.append(kv_string)
+                if entities:
+                    kv_pairs = []
+                    relation_pairs = []
+                    event_pairs = []
+                    # TODO， 针对任务分别封装，仅返回label结果
+                    for entity in entities:
+                        # 分别处理NER和RE
+                        if 'type' in entity and 'trigger' in entity and 'arguments' in entity:
+                            event_type = entity['type']
+                            event_trigger = entity['trigger']
+                            event_arguments = ["(name:{},role:{})".format(argument['name'], argument['role']) for argument in entity['arguments']]
+                            event_pairs_ = [event_type,event_trigger,event_arguments]
+                            event_pairs.append(event_pairs_)
+                        elif 'type' in entity and 'name' in entity:
+                            kv_pairs_ = [entity['type'], entity['name']]
+                            kv_pairs.append(kv_pairs_)
+
+                        elif 'head' in entity and 'type' in entity and 'tail' in entity:
+                            relation_pairs_ = [entity['head']['name'],entity['type'],entity['tail']['name']]
+                            relation_pairs.append(relation_pairs_)
+
+                    if len(event_pairs)>0:
+                        label = ", ".join(["(type:{}, trigger:{}, arguments:".format(type, trigger)+", ".join(arguments)+")" for (type, trigger, arguments) in event_pairs])
+                    elif len(kv_pairs)>0:
+                        label = ", ".join(["{}: {}".format(k, v) for (k, v) in kv_pairs])
+                    elif len(relation_pairs)>0:
+                        label = ", ".join(["({}, {}, {})".format(h,r,t) for (h,r,t) in relation_pairs])
+                    labels.append(label)
+                else:
+                    labels.append("[]")
 
             if self.text_only:
                 model_inputs["labels"] = labels
             else:
-
                 with self.tokenizer.as_target_tokenizer():
                     labels = self.tokenizer(
                         labels,
@@ -108,11 +117,6 @@ class DataCollatorForUIE:
         return model_inputs
 
 
-
-# "Please list all entity words in the text that fit the category.Output format is [{word1, type1}, {word2, type2}]
-# text: {x}
-# category: [{type：location}, {type: org}, ... , ]
-# Answer: [{word1, type1}, {word2, type2}, ..., {wordN,typeN}]"
 
 # TODO list
 # 1.输出验证
