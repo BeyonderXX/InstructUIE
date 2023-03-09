@@ -104,7 +104,6 @@ def eval_NER(json_data, y_pred: str):
     
     return _TFPN(entity_truth, entity_pred)
 
-
 def eval_RE(json_data, y_pred: str):
     """
     json_data: json-like object
@@ -112,16 +111,19 @@ def eval_RE(json_data, y_pred: str):
     return: TP, FN, FP
     """
     truth = set()
-    for rel in json_data['relations']:
+    for rel in json.loads(json_data['Instance']['entities']):
         head = rel['head']['name']
         rel_type = rel['type']
         tail = rel['tail']['name']
-        if rel_type != 'no_relation':
-            # 数据集中type为'no_relation'的关系会被全部忽略掉
+        if rel_type not in ['no_relation', 'NA', 'N/A']:
+            # 数据集中type为'no_relation'或'NA'的关系会被全部忽略掉
             rel = '(%s,%s,%s)'%(head, rel_type, tail)
             rel = _remove_redundant_space(rel)
             truth.add(rel)
-    
+
+    # y_pred中理应只包含模型自己输出的内容，而不包含prompt
+    y_pred = y_pred.split('Answer:')[-1]
+
     pred = set()
     if y_pred.strip() != 'no relation':
         # 如果模型输出'no relation'，则认为其预测的关系集合为空集
@@ -130,9 +132,11 @@ def eval_RE(json_data, y_pred: str):
             elements = tuple([i.strip() for i in rel.split(',')])
             if len(elements) == 3:
                 # 预测中不符合格式的关系会被舍弃
-                rel = '(%s,%s,%s)'%elements
-                rel = _remove_redundant_space(rel)
-                pred.add(rel)
+                rel_type = elements[1]
+                if rel_type not in ['no_relation', 'NA', 'N/A']:
+                    rel = '(%s,%s,%s)'%elements
+                    rel = _remove_redundant_space(rel)
+                    pred.add(rel)
     return _TFPN(truth, pred)
 
 
