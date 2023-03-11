@@ -219,7 +219,6 @@ def eval_Event(json_data, y_pred: str):
             event_string = ','.join(sorted(pair_strings))
             event_string = _remove_redundant_space(event_string)
             pred.add(event_string)
-    print(truth, pred)
     return _TFPN(truth, pred)
 
 
