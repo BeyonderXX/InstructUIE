@@ -62,7 +62,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port $port src/run_s2s_u
 #     --num_neg_examples 0 \
 #     --add_explanation False \
 #     --tk_instruct False \
-#     --data_dir /root/InstructUIE/IE_data/NER_processed/ \
+#     --data_dir /root/InstructUIE/data/NER_processed/ \
 #     --task_dir /root/InstructUIE/data/tasks/ \
 #     --output_dir output/ \
 #     --cache_dir ./cache/ \

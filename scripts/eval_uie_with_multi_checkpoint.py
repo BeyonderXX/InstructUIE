@@ -30,7 +30,7 @@ for file_name in file:
     --num_neg_examples 0 \
     --add_explanation False \
     --tk_instruct False \
-    --data_dir /workspace/InstructUIE/IE_data/NER_processed/ \
+    --data_dir /workspace/InstructUIE/data/NER_processed/ \
     --task_dir /workspace/InstructUIE/data/tasks/ \
     --cache_dir ./cache/ \
     --overwrite_cache \

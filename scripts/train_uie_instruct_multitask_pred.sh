@@ -23,7 +23,7 @@ port=$(shuf -i25000-30000 -n1)
 #    --num_neg_examples 0 \
 #    --add_explanation False \
 #    --tk_instruct False \
-#    --data_dir /root/InstructUIE/IE_data/NER_processed/ \
+#    --data_dir /root/InstructUIE/data/NER_processed/ \
 #    --task_dir /root/InstructUIE/data/tasks/ \
 #    --output_dir output/ \
 #    --overwrite_output_dir \
