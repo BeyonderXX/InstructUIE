@@ -4,14 +4,23 @@ set -x
 export CUDA_DEVICE_ORDER="PCI_BUS_ID"
 export TRANSFORMERS_CACHE=/root/.cache/huggingface
 
-port=$(shuf -i25000-30000 -n1)
+export MODEL_PATH=/mnt/data/user/zhou_weikang/model_cache/t5-base
+export DATA_DIR=/mnt/data/user/xia_han/dataset/IE_data/NER_processed/
+export TASK_DIR=/mnt/data/user/xia_han/dataset/IE_data/     # 无用参数
+export HOSTFILE=/root/LLM/hostfile
 
-# 3090 * 8 on t5-700M
-#deepspeed --master_port $port src/run_s2s_uie.py \
+# # port=$(shuf -i25000-30000 -n1)
+# port=51419
+
+# # 3090 * 8 on t5-700M
+# deepspeed \
+#    --hostfile=$HOSTFILE \
+#    --master_port $port \
+#    src/run_s2s_uie.py \
 #    --do_train \
 #    --do_predict \
 #    --predict_with_generate \
-#    --model_name_or_path /root/MODELS/t5-700M \
+#    --model_name_or_path $MODEL_PATH \
 #    --max_source_length 512 \
 #    --max_target_length 128 \
 #    --generation_max_length 128 \
@@ -23,8 +32,8 @@ port=$(shuf -i25000-30000 -n1)
 #    --num_neg_examples 0 \
 #    --add_explanation False \
 #    --tk_instruct False \
-#    --data_dir /root/InstructUIE/data/NER_processed/ \
-#    --task_dir /root/InstructUIE/data/tasks/ \
+#    --data_dir $DATA_DIR \
+#    --task_dir $TASK_DIR \
 #    --output_dir output/ \
 #    --overwrite_output_dir \
 #    --cache_dir ./cache/ \
