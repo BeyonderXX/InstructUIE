@@ -29,7 +29,7 @@ import datasets
 import nltk  # Here to have a nice missing dependency error message early on
 import numpy as np
 # from datasets.utils import set_progress_bar_enabled
-from datasets import load_dataset, load_metric
+from datasets import load_dataset
 
 import transformers
 from filelock import FileLock
@@ -37,22 +37,21 @@ from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,
     AutoTokenizer,
-    DataCollatorForSeq2Seq,
     HfArgumentParser,
     MBart50Tokenizer,
     MBart50TokenizerFast,
     MBartTokenizer,
     MBartTokenizerFast,
-    Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
-    set_seed,
-)
+    set_seed, )
 from transformers.file_utils import is_offline_mode
 from transformers.trainer_utils import get_last_checkpoint
-from uie_collator_multitask import DataCollatorForUIE
-# todo
-from uie_trainer import UIETrainer, DenserEvalCallback
 
+from src.model.bloom import BloomForCausalLM_withloss
+from src.model.codegen import CodeGenForCausalLM_with_instruct_loss
+from uie_collator import DataCollatorForUIE
+
+from uie_trainer import UIETrainer, DenserEvalCallback
 from compute_metrics import compute_metrics, compute_grouped_metrics
 
 os.environ['WANDB_DISABLED'] = "True"
@@ -236,7 +235,7 @@ class DataTrainingArguments:
     )
     tk_instruct: Optional[bool] = field(
         default=False,
-        metadata={"help": "tk_instruct will train a model combining all valid instruction encodings. This will overwrite the other settings about instruction encoding."} 
+        metadata={"help": "tk_instruct will train a model combining all valid instruction encodings. This will overwrite the other settings about instruction encoding."}
     )
 
     def __post_init__(self):
@@ -244,7 +243,7 @@ class DataTrainingArguments:
 
 
 @dataclass
-class NITrainingArguments(Seq2SeqTrainingArguments):
+class UIETrainingArguments(Seq2SeqTrainingArguments):
     denser_evaluation: Optional[bool] = field(
         default=False,
         metadata={"help": "If specifid, the model will do more evaluation at the beginning of training."}
@@ -266,7 +265,7 @@ def main():
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
 
-    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, NITrainingArguments))
+    parser = HfArgumentParser((ModelArguments, DataTrainingArguments, UIETrainingArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
@@ -294,7 +293,6 @@ def main():
     )
     logger.info(f"Training/evaluation parameters {training_args}")
 
-    # TODO, add other model support
     if data_args.source_prefix is None and model_args.model_name_or_path in [
         "t5-small",
         "t5-base",
@@ -308,7 +306,6 @@ def main():
         )
 
     # Detecting last checkpoint.
-    # load ckpt and lr scheduler, keep gpus num consistency
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
         last_checkpoint = get_last_checkpoint(training_args.output_dir)
@@ -326,10 +323,11 @@ def main():
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
+    # TODO, 创建 builder， 配置 config
     # Get the NaturalInstructions dataset
     raw_datasets = load_dataset(
-        os.path.join(CURRENT_DIR, "uie_dataset_multitask.py"),
-        data_dir=data_args.data_dir, 
+        os.path.join(CURRENT_DIR, "uie_dataset.py"),
+        data_dir=data_args.data_dir,
         task_dir=data_args.task_dir,
         prompt_dir=data_args.prompt_dir,
         cache_dir=model_args.cache_dir,
@@ -342,8 +340,6 @@ def main():
     # Distributed training:
     # The .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
-    # TODO, Bloomz, codegen, LLaMA
-    # TODO, align tokenizer with model, default gpt2
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
@@ -357,27 +353,45 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    model = AutoModelForSeq2SeqLM.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
-        config=config,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
+    if 'bloom'.lower() in model_args.model_name_or_path.lower():
+        model = BloomForCausalLM_withloss.from_pretrained(
+            model_args.model_name_or_path,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+    elif 'codegen'.lower() in model_args.model_name_or_path.lower():
+        model = CodeGenForCausalLM_with_instruct_loss.from_pretrained(
+            model_args.model_name_or_path,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    else:
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            model_args.model_name_or_path,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
 
     model.resize_token_embeddings(len(tokenizer))
 
-    # Why use lang to set decode start token?
+    # 用来判断多语言的EOS
     if model.config.decoder_start_token_id is None and isinstance(tokenizer, (MBartTokenizer, MBartTokenizerFast)):
         if isinstance(tokenizer, MBartTokenizer):
             model.config.decoder_start_token_id = tokenizer.lang_code_to_id[data_args.lang]
         else:
             model.config.decoder_start_token_id = tokenizer.convert_tokens_to_ids(data_args.lang)
 
-    if model.config.decoder_start_token_id is None:
-        raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
-
+    # decoder用bos_token和eos_token
     if (
         hasattr(model.config, "max_position_embeddings")
         and model.config.max_position_embeddings < data_args.max_source_length
@@ -396,6 +410,21 @@ def main():
                 f" position encodings. Consider either reducing `--max_source_length` to {model.config.max_position_embeddings} or to automatically "
                 "resize the model's position encodings by passing `--resize_position_embeddings`."
             )
+
+    if isinstance(tokenizer, tuple(MULTILINGUAL_TOKENIZERS)):
+        assert (
+            data_args.lang is not None
+        ), f"{tokenizer.__class__.__name__} is a multilingual tokenizer which requires --lang argument"
+
+        tokenizer.src_lang = data_args.lang
+        tokenizer.tgt_lang = data_args.lang
+
+        # For multilingual translation models like mBART-50 and M2M100 we need to force the target language token
+        # as the first generated token. We ask the user to explicitly provide this as --forced_bos_token argument.
+        forced_bos_token_id = (
+            tokenizer.lang_code_to_id[data_args.forced_bos_token] if data_args.forced_bos_token is not None else None
+        )
+        model.config.forced_bos_token_id = forced_bos_token_id
 
     if training_args.label_smoothing_factor > 0 and not hasattr(model, "prepare_decoder_input_ids_from_labels"):
         logger.warning(
@@ -441,12 +470,12 @@ def main():
         add_explanation=data_args.add_explanation,
         tk_instruct=data_args.tk_instruct
     )
-    # we don't want to remove unused columns because we will prepare each batch during training, 
+    # we don't want to remove unused columns because we will prepare each batch during training,
     # and some of the information will aslo be used in evaluation.
-    training_args.remove_unused_columns = False 
+    training_args.remove_unused_columns = False
 
     # Metric
-    def compute_ni_metrics(dataset, preds, save_prefix=None):
+    def compute_rouge_metrics(dataset, preds, save_prefix=None):
         decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
         references = [e["Instance"]["output"] for e in dataset]
         result = compute_metrics(predictions=decoded_preds, references=references)
@@ -469,8 +498,6 @@ def main():
                     }) + "\n")
         return result
 
-    # TODO
-    # Initialize our Trainer
     trainer = UIETrainer(
         model=model,
         args=training_args,
@@ -478,19 +505,18 @@ def main():
         eval_dataset=eval_dataset if training_args.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
-        compute_metrics=compute_ni_metrics if training_args.predict_with_generate else None,
+        compute_metrics=compute_rouge_metrics if training_args.predict_with_generate else None,
         callbacks=[DenserEvalCallback] if training_args.denser_evaluation else None
     )
-
 
     # Training
     # 训练epoch数，按照 num_train_epochs 传入，在trainer中解析
     if training_args.do_train:
         checkpoint = None
-        # if training_args.resume_from_checkpoint is not None:
-        #     checkpoint = training_args.resume_from_checkpoint
-        # elif last_checkpoint is not None:
-        #     checkpoint = last_checkpoint
+        if training_args.resume_from_checkpoint is not None:
+            checkpoint = training_args.resume_from_checkpoint
+        elif last_checkpoint is not None:
+            checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
         trainer.save_model()  # Saves the tokenizer too for easy upload
 
@@ -504,7 +530,6 @@ def main():
         trainer.save_metrics("train", metrics)
         trainer.save_state()
         print(metrics)
-
 
     # Evaluation
     results = {}
@@ -543,68 +568,11 @@ def main():
                     predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
                 )
                 predictions = [pred.strip() for pred in predictions]
-                # output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
-                # with open(output_prediction_file, "w") as writer:
-                #     writer.write("\n".join(predictions))
                 output_prediction_file = os.path.join(training_args.output_dir, f"predicted_examples.jsonl")
                 with open(output_prediction_file, "w") as fout:
                     for example, prediction in zip(predict_dataset, predictions):
                         example["prediction"] = prediction
                         fout.write(json.dumps(example) + "\n")
-
-    #TODO  一次处理一个文件
-    # if training_args.do_predict_onebyone:
-    #
-    #     logger.info("*** Predict one by one ***")
-    #     logger.info("*** Loading CheckPoint ***")
-    #     checkpoint = None
-    #     if os.path.isdir(training_args.output_dir):
-    #         checkpoint = get_last_checkpoint(training_args.output_dir)
-    #     if training_args.resume_from_checkpoint is not None:
-    #         checkpoint = training_args.resume_from_checkpoint
-    #
-    #     model = model.from_pretrained(checkpoint)
-    #     trainer = UIETrainer(
-    #         model=model,
-    #         args=training_args,
-    #         tokenizer=tokenizer,
-    #         data_collator=data_collator,
-    #     )
-    #     task_catagories = data_args.task_dir.split(',')
-    #     for task_catagory in task_catagories:
-    #         task_path_list = os.path.join(data_args.data_dir,task_catagory)
-    #         for data_name in os.listdir(task_path_list):
-    #             logger.info(f"*** Data name is {data_name} ***")
-    #             data_path = os.path.join(task_path_list,data_name)
-    #             raw_datasets = load_dataset(
-    #                 os.path.join(CURRENT_DIR, "uie_dataset_multitask.py"),
-    #                 data_dir=data_path,
-    #                 task_dir = task_catagory,
-    #                 cache_dir=model_args.cache_dir,
-    #                 max_num_instances_per_task=data_args.max_num_instances_per_task,
-    #                 max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task
-    #             )
-    #             predict_dataset = raw_datasets["test"]
-    #
-    #             predict_results = trainer.predict(
-    #                     predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
-    #                 )
-    #
-    #             logger.info(f"*** Evaluate {data_name} ***")
-    #             if trainer.is_world_process_zero():
-    #                 if training_args.predict_with_generate:
-    #                     predictions = tokenizer.batch_decode(
-    #                         predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
-    #                     )
-    #                     predictions = [pred.strip() for pred in predictions]
-    #                     # output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
-    #                     # with open(output_prediction_file, "w") as writer:
-    #                     #     writer.write("\n".join(predictions))
-    #                     output_prediction_file = os.path.join(training_args.output_dir, f"{data_name}_predicted_examples.jsonl")
-    #                     with open(output_prediction_file, "w") as fout:
-    #                         for example, prediction in zip(predict_dataset, predictions):
-    #                             example["prediction"] = prediction
-    #                             fout.write(json.dumps(example) + "\n")
 
     if training_args.do_demo:
         logger.info("Serving the model as a demo...")
@@ -620,11 +588,6 @@ def main():
             print(f"Model generates: {tokenizer.decode(preds[0], skip_special_tokens=True)}\n\n")
 
     return results
-
-
-def _mp_fn(index):
-    # For xla_spawn (TPUs)
-    main()
 
 
 if __name__ == "__main__":

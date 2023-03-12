@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # Lint as: python3
-"""Natural Instruction V2 Dataset."""
+"""InstructUIE Dataset."""
 
 
 import json
@@ -25,24 +25,63 @@ import datasets
 logger = datasets.logging.get_logger(__name__)
 
 
-# TODO，设计接口，支持config文件配置，支持few-shot，zero-shot
+# TODO，设计接口，支持 config 文件配置，支持few-shot，zero-shot
+# TODO, 增加 prompt 随机选择功能
+# 怎么保证 prompt 与 任务数据的变形需求灵活匹配？
 class UIEConfig(datasets.BuilderConfig):
-    def __init__(self, *args, task_dir=None, prompt_dir=None, max_num_instances_per_task=None, max_num_instances_per_eval_task=None, **kwargs):
+    """
+    Config dataset load procedure.
+
+    Args:
+        data_dir: task data dir, which contains the corresponding dataset dirs
+        prompt_path: prompt json file, which saves task and its prompts map
+        config_path: data loader config, which saves train and test splits.
+         Support two sampling strategies: 0 indicates random sampling, while 1 means to return all samples.
+        max_num_instances_per_task: max training sample size of each task
+        max_num_instances_per_eval_task: max eval sample size of each task
+    """
+    def __init__(
+        self,
+        *args,
+        data_dir=None,
+        prompt_path=None,
+        config_path=None,
+        max_num_instances_per_task=None,
+        max_num_instances_per_eval_task=None,
+        **kwargs
+    ):
         super().__init__(*args, **kwargs)
-        self.task_dir: str = task_dir
+        self.data_dir: str = self._check_path(data_dir)
+        self._check_path(prompt_path)
+        self.prompts = self._parse_prompt(prompt_path)
+        self.config_path: str = self._check_path(config_path)
+
         self.max_num_instances_per_task: int = max_num_instances_per_task
         self.max_num_instances_per_eval_task: int = max_num_instances_per_eval_task
-        if prompt_dir == None:
-            print('none')
-            prompt_dir =r'/workspace/InstructUIE/prompt.json'
+
+        if not prompt_dir or not os.path.exists(prompt_dir):
+            # print('none')
+            # prompt_dir =r'/workspace/InstructUIE/prompt.json'
+            raise ValueError('Prompt dir {} is not valid, please check the path!'.format(prompt_dir))
         with open(prompt_dir, 'r') as f:
             self.prompt_dict = json.loads(f.read())
 
+    def _check_path(self, path):
+        if not path or not os.path.exists(path):
+            raise ValueError('{} is not valid, please check the input path!'.format(path))
+
+        return path
+
+    def _parse_prompt(self, prompt_path):
+        pass
+
+    # TODO, add prompt path
+    def _parse_config(self, config_path):
+        pass
+
 
 class UIEInstructions(datasets.GeneratorBasedBuilder):
-
-
-    """NaturalInstructions Dataset."""
+    """InstructUIE Dataset."""
 
     VERSION = datasets.Version("2.0.0")
     BUILDER_CONFIG_CLASS = UIEConfig
@@ -50,10 +89,6 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         UIEConfig(name="default", description="Default config for NaturalInstructions")
     ]
     DEFAULT_CONFIG_NAME = "default"
-
-
-    # def __int__(self,*args):
-
 
     # TODO，不同数据集格式需要统一，暂时先按照NER的加载
     def _info(self):
@@ -127,6 +162,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         logger.info(f"Generating tasks from = {path}")
         assert os.path.exists(path)
         task_dir = task_dir.split(',')
+
         for task_catagory in task_dir:
             task_path = os.path.join(path, task_catagory)
             for task_file_name in os.listdir(task_path):
@@ -216,12 +252,10 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
 
 
-
-
 # test program
 def load_examples(path=None, task_dir = None , max_num_instances_per_task=None, subset=None):
     """Yields examples."""
-    with open(r'/workspace/InstructUIE/IE_data/prompt.json', 'r') as f:
+    with open(r'/workspace/InstructUIE/data/prompt.json', 'r') as f:
         prompt_dict = json.loads(f.read())
 
     """Yields examples."""
@@ -313,6 +347,7 @@ def load_examples(path=None, task_dir = None , max_num_instances_per_task=None, 
                     id += 1
 
                     yield f"{task_file_name}##{idx}", example
+
 
 if __name__ == "__main__":
     sample_genor = load_examples(path=r'/workspace/original',task_dir=','.join(['EE']),

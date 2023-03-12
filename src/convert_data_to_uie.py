@@ -9,7 +9,7 @@ import glob
 import tqdm
 import pandas as pd
 from transformers import HfArgumentParser, GPT2TokenizerFast
-from run_s2s_uie import DataTrainingArguments
+from run_uie import DataTrainingArguments
 from datasets import load_dataset
 from uie_collator import DataCollatorForUIE
 from dataclasses import dataclass, field
@@ -27,6 +27,7 @@ class CustomizedArguments:
 if __name__ == "__main__":
     parser = HfArgumentParser((DataTrainingArguments, CustomizedArguments))
     args, customized_args = parser.parse_args_into_dataclasses()
+    # TODO， add config path
     raw_datasets = load_dataset(
         os.path.join(CURRENT_DIR, "uie_dataset.py"),
         data_dir=args.data_dir, 

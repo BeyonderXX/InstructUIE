@@ -44,13 +44,15 @@ class DataCollatorForUIE:
                 task_input = instance["instruction"]
                 task_input = task_input.format(instance['Instance']['sentence'])
 
+                # TODO， 修改 key
                 #处理生成label
-
                 entities = json.loads(instance["Instance"]["entities"].replace("'", '"').replace("#$%#", "'"))
                 if entities:
                     kv_pairs = []
                     relation_pairs = []
                     event_pairs = []
+
+                    # TODO， 针对任务分别封装，仅返回label结果
                     for entity in entities:
                         # 分别处理NER和RE
                         if 'type' in entity and 'trigger' in entity and 'arguments' in entity:

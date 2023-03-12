@@ -72,6 +72,6 @@ def NER_label_collect(file_path):
 
 
 if __name__ == "__main__":
-    NER_path = '/root/InstructUIE/IE_data/NER_processed'
-    filter_path = '/root/InstructUIE/IE_data/NER_filter'
+    NER_path = '/root/InstructUIE/data/NER_processed'
+    filter_path = '/root/InstructUIE/data/NER_filter'
     label_collect(NER_path, NER_label_collect, filter_path)
