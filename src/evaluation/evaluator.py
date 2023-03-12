@@ -75,13 +75,12 @@ class MetricF1NA(MetricF1):
     def update(self, y_truth: set, y_pred: set):
         for truth in y_truth:
             if ',NA,' in truth:
-                pattern = truth.split(',')
-                pattern[1] = '(?!NA)'
-                pattern = ','.join(pattern)
+                pattern = truth.replace(',NA,', ',(.+),')
                 pattern = re.compile(pattern)
                 pred_fail = False
                 for pred in y_pred:
-                    if pattern.match(pred) is not None:     # truth: (A,NA,B); pred:(A,notNA,B)
+                    match = pattern.match(pred)
+                    if match is not None and match.group(1) != 'NA':     # truth: (A,NA,B); pred:(A,notNA,B)
                         pred_fail = True
                         break
                 if not pred_fail:       # 只有当预测中没有给出错误的明确肯定时才加TP
@@ -93,13 +92,12 @@ class MetricF1NA(MetricF1):
                     self.sum_FN += 1
         for pred in y_pred:
             if ',NA,' in pred:
-                pattern = pred.split(',')
-                pattern[1] = '(?!NA)'
-                pattern = ','.join(pattern)
+                pattern = pred.replace(',NA,', ',(.+),')
                 pattern = re.compile(pattern)
                 pred_fail = False
                 for truth in y_truth:
-                    if pattern.match(truth) is not None:    # pred: (A,NA,B); truth:(A,notNA,B)
+                    match = pattern.match(truth)
+                    if match is not None and match.group(1) != 'NA':    # pred: (A,NA,B); truth:(A,notNA,B)
                         pred_fail = True
                         break
                 if pred_fail:
