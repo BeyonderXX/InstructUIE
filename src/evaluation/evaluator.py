@@ -92,7 +92,7 @@ class MetricF1NA(MetricF1):
                     self.sum_FN += 1
         for pred in y_pred:
             if ',NA,' in pred:
-                pattern = pred.replace(',NA,', ',(.+),')
+                pattern = re.escape(pred).replace(',NA,', ',(.+),')
                 pattern = re.compile(pattern)
                 pred_fail = False
                 for truth in y_truth:
@@ -270,6 +270,8 @@ class EvaluatorNER(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricF1()
     def _extract(self, json_data, predict):
+        predict = predict.split('Answer:')[-1]
+
         entity_truth = set()
         tmp = json.loads(json_data['Instance']['entities'].replace("'",'"'))
 
@@ -277,7 +279,7 @@ class EvaluatorNER(EvaluatorBase):
             ent = ent['type']+':'+ent['name']
             ent = self._remove_redundant_space(ent)
             entity_truth.add(ent)
-
+        
         entity_pred = set()
         for ent in predict.split(','):
             ent = ent.split(':')
@@ -300,6 +302,9 @@ class EvaluatorRE(EvaluatorBase):
         ]
 
     def _extract(self, json_data, predict):
+        # predict中理应只包含模型自己输出的内容，而不包含prompt，但这里还是处理一下
+        predict = predict.split('Answer:')[-1]
+
         y_truth = set()
         for rel in json.loads(json_data['Instance']['entities']):
             head = rel['head']['name']
@@ -309,9 +314,6 @@ class EvaluatorRE(EvaluatorBase):
             rel = '(%s,%s,%s)'%(head, rel_type, tail)
             rel = self._remove_redundant_space(rel)
             y_truth.add(rel)
-
-        # predict中理应只包含模型自己输出的内容，而不包含prompt，但这里还是处理一下
-        predict = predict.split('Answer:')[-1]
 
         y_pred = set()
         if predict.strip() not in {'no relation', '[]'}:
@@ -331,6 +333,8 @@ class EvaluatorMRC(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricF1()
     def _extract(self, json_data, predict):
+        predict = predict.split('Answer:')[-1]
+
         truth = self._remove_redundant_space(json_data['answer_text'])
         pred = self._remove_redundant_space(predict)
         return truth, pred
@@ -340,6 +344,8 @@ class EvaluatorSM(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricAcc()
     def _extract(self, json_data, predict):
+        predict = predict.split('Answer:')[-1]
+
         y_truth = self._remove_redundant_space(json_data['label'])
         y_pred = self._remove_redundant_space(predict)
         trans_dict = {
@@ -358,6 +364,8 @@ class EvaluatorEvent(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricAcc()
     def _extract(self, json_data, predict):
+        predict = predict.split('Answer:')[-1]
+
         y_truth = set()
         for event in json_data['events']:
             event_elements = []
