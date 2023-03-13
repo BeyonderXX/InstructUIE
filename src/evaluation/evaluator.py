@@ -75,7 +75,7 @@ class MetricF1NA(MetricF1):
     def update(self, y_truth: set, y_pred: set):
         for truth in y_truth:
             if ',NA,' in truth:
-                pattern = truth.replace(',NA,', ',(.+),')
+                pattern = re.escape(truth).replace(',NA,', ',(.+),')
                 pattern = re.compile(pattern)
                 pred_fail = False
                 for pred in y_pred:
@@ -109,8 +109,8 @@ class MetricF1NA(MetricF1):
                     self.sum_FP += 1
 
 class AuditBase:
-    def __init__(self, name, record_limit=16):
-        self.name = name
+    def __init__(self, record_limit=16):
+        # record_limit: maximum size of record, `-1` for infinite, `0` for no record
         self.record_limit = record_limit
         self.cnt = 0
         self.record = []
@@ -123,11 +123,24 @@ class AuditBase:
             self.cnt += 1
             if self.record_limit < 0 or len(self.record) < self.record_limit:
                 # record limit check
-                self.record.append(last)
+                self.record.append({
+                    'json_data': last['json_data'],
+                    'predict': last['predict'],
+                    'y_truth': list(last['y_truth']),
+                    'y_pred': list(last['y_pred'])
+                })
     def get_cnt(self):
         return self.cnt
     def get_record(self):
         return self.record
+    def get_report(self):
+        return {
+            'count': self.cnt,
+            'record': self.record
+        }
+    def get_name(self):
+        # 默认为类名，如果想要定制名字的话请考虑重载此方法
+        return self.__class__.__name__
 
 class AuditVoid(AuditBase):
     "检测空输出"
@@ -169,16 +182,23 @@ class AuditRepeat(AuditBase):
         match = re.search(pattern, last['predict'])
         return match is not None
 
+class AuditRetard(AuditBase):
+    "检测零分"
+    def _check(self, last) -> bool:
+        last_metric = last['metric']
+        if hasattr(last_metric, 'last_TP'):
+            return last_metric.last_TP == 0
+        else:
+            return False
+
 class EvaluatorBase:
-    def __init__(self, record_limit=-1):
-        # record_limit: maximum size of record, `-1` for infinite, `0` for no record
-        self.record_limit = record_limit
+    def __init__(self):
+        self.last = dict()
         self._init_audit()
         self._init_metric()
     
     def _init_metric(self):
         # must be overrided to init self.metric
-        self.last = dict()
         self.metric = MetricBase()
 
     def _init_audit(self):
@@ -187,7 +207,8 @@ class EvaluatorBase:
         self.audit = [
             AuditVoid(),
             AuditLong(),
-            AuditRepeat()
+            AuditRepeat(),
+            AuditRetard()
         ]
     
     def _update_audit(self):
@@ -225,13 +246,20 @@ class EvaluatorBase:
         self.last['y_pred'] = y_pred
         self.last['metric'] = self.metric
 
-        self._update_audit(self.last)
+        self._update_audit()
     
     def get_matric(self) -> float:
         return self.metric.get_metric()
 
-    def get_record(self):
-        return self.record
+    def get_audit_report(self):
+        '获取所有审计项结果报告'
+        return {
+            a.get_name() : a.get_report()
+            for a in self.audit
+        }
+    def dump_audit_report(self, fpath):
+        with open(fpath, 'w', encoding='utf-8') as f:
+            json.dump(self.get_audit_report(), f, indent=4)
 
     @staticmethod
     def _remove_redundant_space(s):
