@@ -70,17 +70,56 @@ class MetricF1(MetricBase):
     def get_last(self):
         return self.last_TP, self.last_FN, self.last_FP
 
+class MetricF1NA(MetricF1):
+    "对于RE中关系类型为NA的特殊处理"
+    def update(self, y_truth: set, y_pred: set):
+        for truth in y_truth:
+            if ',NA,' in truth:
+                pattern = truth.replace(',NA,', ',(.+),')
+                pattern = re.compile(pattern)
+                pred_fail = False
+                for pred in y_pred:
+                    match = pattern.match(pred)
+                    if match is not None and match.group(1) != 'NA':     # truth: (A,NA,B); pred:(A,notNA,B)
+                        pred_fail = True
+                        break
+                if not pred_fail:       # 只有当预测中没有给出错误的明确肯定时才加TP
+                    self.sum_TP += 1    # 至于FP会在后面统计，这里就不用计算了，否则会造成重复统计
+            else:
+                if truth in y_pred:
+                    self.sum_TP += 1
+                else:
+                    self.sum_FN += 1
+        for pred in y_pred:
+            if ',NA,' in pred:
+                pattern = pred.replace(',NA,', ',(.+),')
+                pattern = re.compile(pattern)
+                pred_fail = False
+                for truth in y_truth:
+                    match = pattern.match(truth)
+                    if match is not None and match.group(1) != 'NA':    # pred: (A,NA,B); truth:(A,notNA,B)
+                        pred_fail = True
+                        break
+                if pred_fail:
+                    self.sum_FP += 1
+                else:
+                    self.sum_TP += 0    # 这里不太确定，对于pred给出的(A,NA,B)，如果truth中不包含(A,*,B)，是否应该算作TP? 我姑且认为是不算的，预测中给出(A,NA,B)的话，对了不加分，错了要扣分。
+            else:
+                if pred not in y_truth:
+                    self.sum_FP += 1
+
 class AuditBase:
     def __init__(self, name, record_limit=16):
         self.name = name
         self.record_limit = record_limit
         self.cnt = 0
         self.record = []
-    def _check(self, last):
+    def _check(self, last) -> bool:
         # must be overrided
+        # return whether be recorded or not
         raise NotImplementedError()
     def update(self, last):
-        if self.check(last):
+        if self._check(last):
             self.cnt += 1
             if self.record_limit < 0 or len(self.record) < self.record_limit:
                 # record limit check
@@ -92,28 +131,43 @@ class AuditBase:
 
 class AuditVoid(AuditBase):
     "检测空输出"
-    def _check(self, last):
-        pass
+    def _check(self, last) -> bool:
+        return last['predict'].strip() == ''
 
 class AuditLong(AuditBase):
     "检测过长的输出"
-    def _check(self, last):
-        pass
+    def _check(self, last) -> bool:
+        return len(last['predict']) >= 512     # 长度上限根据需要自行修改
 
 class AuditNA(AuditBase):
-    "检测包含类型为NA的输出"
-    def _check(self, last):
-        pass
+    "检测包含类型为NA的输出，目前只用于RE"
+    def _check(self, last) -> bool:
+        for i in last['y_pred']:    # assert isinstance(i, str)
+            if ',NA,' in i:
+                return True
+        return False
 
 class AuditInvalid(AuditBase):
-    "检测包含非法标签类型的输出"
-    def _check(self, last):
-        pass
+    "检测包含非法标签类型的输出，目前只用于RE"
+    def _check(self, last) -> bool:
+        valid_labels = re.findall('Option:(.+?)\n', last['json_data']['instruction'])
+        if len(valid_labels) == 0:
+            # 如果是没有提供option，则忽略该审计项
+            return False
+        valid_labels = set(valid_labels[0].strip().split(','))
+
+        for pred in last['y_pred']:
+            label = pred.split(',')[1]
+            if label not in valid_labels:
+                return True
+        return False
 
 class AuditRepeat(AuditBase):
     "检测复读机"
-    def _check(self, last):
-        pass
+    def _check(self, last) -> bool:
+        pattern = r'(\w{5,})\1{2,}'  # 匹配连续出现三次及以上的长度大于5的子串
+        match = re.search(pattern, last['predict'])
+        return match is not None
 
 class EvaluatorBase:
     def __init__(self, record_limit=-1):
@@ -129,11 +183,10 @@ class EvaluatorBase:
 
     def _init_audit(self):
         # override if necessary
+        # 如果需要添加其他审计项目或者自定义实例化的话请考虑重载此方法
         self.audit = [
             AuditVoid(),
             AuditLong(),
-            AuditNA(),
-            AuditInvalid(),
             AuditRepeat()
         ]
     
@@ -165,6 +218,7 @@ class EvaluatorBase:
         self.metric.update(y_truth, y_pred)
 
         # audit
+        # last中存储需要提交审计的所有可能会用到的信息
         self.last['json_data'] = json_data
         self.last['predict'] = predict
         self.last['y_truth'] = y_truth
@@ -208,38 +262,42 @@ class EvaluatorNER(EvaluatorBase):
 
 class EvaluatorRE(EvaluatorBase):
     def _init_metric(self):
-        self.metric = MetricF1()
+        self.metric = MetricF1NA()  # 对NA类关系的特殊处理
+
+    def _init_audit(self):
+        super()._init_audit()    
+        self.audit += [
+            AuditInvalid(),
+            AuditNA()
+        ]
+
     def _extract(self, json_data, predict):
         y_truth = set()
         for rel in json.loads(json_data['Instance']['entities']):
             head = rel['head']['name']
             rel_type = rel['type']
             tail = rel['tail']['name']
-            if rel_type not in ['no_relation', 'NA', 'N/A']:
-                # 数据集中type为'no_relation'或'NA'的关系会被全部忽略掉
-                rel = '(%s,%s,%s)'%(head, rel_type, tail)
-                rel = self._remove_redundant_space(rel)
-                y_truth.add(rel)
+            # type为'no_relation'或'NA'的关系现在不忽略，下同
+            rel = '(%s,%s,%s)'%(head, rel_type, tail)
+            rel = self._remove_redundant_space(rel)
+            y_truth.add(rel)
 
         # predict中理应只包含模型自己输出的内容，而不包含prompt，但这里还是处理一下
         predict = predict.split('Answer:')[-1]
 
         y_pred = set()
-        if predict.strip() != 'no relation':
-            # 如果模型输出'no relation'，则认为其预测的关系集合为空集
+        if predict.strip() not in {'no relation', '[]'}:
+            # 如果模型输出'no relation'或'[]'，则认为其预测的关系集合为空集
             for rel in re.findall(r'\(.+?\)', predict):
                 rel = rel[1:-1]
                 elements = tuple([i.strip() for i in rel.split(',')])
                 if len(elements) == 3:
                     # 预测中不符合格式的关系会被舍弃
                     rel_type = elements[1]
-                    if rel_type not in ['no_relation', 'NA', 'N/A']:
-                        rel = '(%s,%s,%s)'%elements
-                        rel = self._remove_redundant_space(rel)
-                        y_pred.add(rel)
+                    rel = '(%s,%s,%s)'%elements
+                    rel = self._remove_redundant_space(rel)
+                    y_pred.add(rel)
         return y_truth, y_pred
-    def _fetch_check(self):
-        pass
 
 class EvaluatorMRC(EvaluatorBase):
     def _init_metric(self):
