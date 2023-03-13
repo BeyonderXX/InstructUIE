@@ -248,7 +248,7 @@ class EvaluatorBase:
 
         self._update_audit()
     
-    def get_matric(self) -> float:
+    def get_metric(self) -> float:
         return self.metric.get_metric()
 
     def get_audit_report(self):
@@ -411,7 +411,7 @@ if __name__ == '__main__':
     def test(evaluator:EvaluatorBase, json_str, predict):
         json_data = json.loads(json_str)
         evaluator.add(json_data, predict)
-        print(evaluator.get_matric())
+        print(evaluator.get_metric())
         print(evaluator.get_record)
     
     # 因为后来的实际格式与最初表格中的不同，因此下列测试可能无法通过，仅作为示例s
