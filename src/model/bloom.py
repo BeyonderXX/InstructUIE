@@ -66,7 +66,7 @@ class BloomForCausalLM_withloss(BloomForCausalLM):
             # Flatten the tokens
             loss = F.cross_entropy(shift_logits.view(batch_size * seq_length, vocab_size), shift_labels.view(batch_size * seq_length),reduction='none')
             if loss_mask != None:
-                loss = loss * loss_mask.view(-1)
+                loss = loss * loss_mask[..., :-1].contiguous().view(-1)
             loss = loss.sum()/loss_mask.sum()
 
         if not return_dict:

@@ -59,7 +59,7 @@ class CodeGenForCausalLM_with_instruct_loss(CodeGenForCausalLM):
             loss = F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1),reduction='none')
 
             if loss_mask != None:
-                loss = loss * loss_mask.view(-1)
+                loss = loss * loss_mask[..., :-1].contiguous().view(-1)
             loss = loss.sum()/loss_mask.sum()
 
         if not return_dict:

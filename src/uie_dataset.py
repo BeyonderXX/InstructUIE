@@ -162,7 +162,6 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         logger.info(f"Generating tasks from = {path}")
         assert os.path.exists(path)
         task_dir = task_dir.split(',')
-
         for task_catagory in task_dir:
             task_path = os.path.join(path, task_catagory)
             for task_file_name in os.listdir(task_path):
@@ -174,23 +173,18 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 instruction = random.choice(instruction_list)
                 labels_path = os.path.join(task_file_path_, "labels.json")
 
-                with open(labels_path, encoding="utf-8") as labels_f:
-                    labels_json = json.load(labels_f)
-                    labels_str = ','.join(labels_json)
-                    instruction += "Option:" + labels_str + " \n " + "Answer: "
-
                 with open(task_file_path, encoding="utf-8") as task_f:
                     s = task_f.read()
-                    task_data_list = json.loads(s)
-                    sample_template = {"Task": task_file_name}
-                    sample_template["Categories"] = task_catagory
-                    sample_template["instruction"] = instruction
-                    instances = task_data_list
+                    instances = json.loads(s)
+
+                sample_template = {"Task": task_file_name}
+                sample_template["Categories"] = task_catagory
+                sample_template["instruction"] = instruction
+
                 if max_num_instances_per_task is not None and max_num_instances_per_task >= 0:
                     random.shuffle(instances)
                     instances = instances[:max_num_instances_per_task]
 
-                # TODO， task 处理接口封装
                 if task_catagory == 'EE':
                     with open(labels_path, encoding="utf-8") as labels_f:
                         labels_json = json.load(labels_f)
@@ -216,10 +210,15 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                             "entities": json.dumps(instance['events'])
                         }
                         id += 1
-
                         yield f"{task_file_name}##{idx}", example
 
                 if task_catagory == 'RE':
+                    with open(labels_path, encoding="utf-8") as labels_f:
+                        labels_json = json.load(labels_f)
+                        labels_str = ','.join(labels_json)
+                        instruction += "Option:" + labels_str + " \n " + "Answer: "
+                        sample_template["instruction"] = instruction
+
                     for idx, instance in enumerate(instances):
                         example = sample_template.copy()
                         example["id"] = str(idx)
@@ -232,10 +231,15 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                             "entities": json.dumps(instance['relations'])
                         }
                         id += 1
-
                         yield f"{task_file_name}##{idx}", example
 
                 if task_catagory == 'NER':
+                    with open(labels_path, encoding="utf-8") as labels_f:
+                        labels_json = json.load(labels_f)
+                        labels_str = ','.join(labels_json)
+                        instruction += "Option:" + labels_str + " \n " + "Answer: "
+                        sample_template["instruction"] = instruction
+
                     for idx, instance in enumerate(instances):
                         example = sample_template.copy()
                         example["id"] = str(idx)
@@ -247,7 +251,6 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                             "entities": json.dumps(instance['entities'])
                         }
                         id += 1
-
                         yield f"{task_file_name}##{idx}", example
 
 

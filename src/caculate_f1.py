@@ -2,6 +2,8 @@ import json
 
 from evaluation.eval_main import eval
 
+# TODO, 代码重构, 支持多任务
+
 # task_path = r'/workspace/InstructUIE/output/flan-t5-700M/output_8000/RE/predicted_examples.jsonl'
 # with open(task_path,'r') as f:
 #     data_lines = [json.loads(line) for line in f.readlines()]

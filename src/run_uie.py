@@ -50,11 +50,13 @@ from transformers.trainer_utils import get_last_checkpoint
 from src.model.bloom import BloomForCausalLM_withloss
 from src.model.codegen import CodeGenForCausalLM_with_instruct_loss
 from uie_collator import DataCollatorForUIE
+from uie_collator_predict import DataCollatorForUIE_decoder
 
 from uie_trainer import UIETrainer, DenserEvalCallback
 from compute_metrics import compute_metrics, compute_grouped_metrics
 
-os.environ['WANDB_DISABLED'] = "True"
+# os.environ['WANDB_DISABLED'] = "True"
+# os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 # set_progress_bar_enabled(False)
 logger = logging.getLogger(__name__)
 CURRENT_DIR = os.path.dirname(__file__)
@@ -324,6 +326,7 @@ def main():
     set_seed(training_args.seed)
 
     # TODO, 创建 builder， 配置 config
+    # TODO， 检查 dataset.py
     # Get the NaturalInstructions dataset
     raw_datasets = load_dataset(
         os.path.join(CURRENT_DIR, "uie_dataset.py"),
@@ -362,6 +365,9 @@ def main():
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
+        if tokenizer.pad_token == None:
+            tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.padding_side = 'left'
     elif 'codegen'.lower() in model_args.model_name_or_path.lower():
         model = CodeGenForCausalLM_with_instruct_loss.from_pretrained(
             model_args.model_name_or_path,
@@ -371,7 +377,8 @@ def main():
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
-        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.padding_side = 'left'
     else:
         model = AutoModelForSeq2SeqLM.from_pretrained(
             model_args.model_name_or_path,
@@ -549,6 +556,22 @@ def main():
         if training_args.resume_from_checkpoint is not None:
             checkpoint = training_args.resume_from_checkpoint
         model = model.from_pretrained(checkpoint)
+        if 'bloom'.lower() in model_args.model_name_or_path.lower() or 'codegen'.lower() in model_args.model_name_or_path.lower():
+            data_collator = DataCollatorForUIE_decoder(
+                tokenizer,
+                model=model,
+                padding="max_length" if data_args.pad_to_max_length else "longest",
+                max_source_length=data_args.max_source_length,
+                max_target_length=data_args.max_target_length,
+                label_pad_token_id=label_pad_token_id,
+                pad_to_multiple_of=8 if training_args.fp16 else None,
+                add_task_name=data_args.add_task_name,
+                add_task_definition=data_args.add_task_definition,
+                num_pos_examples=data_args.num_pos_examples,
+                num_neg_examples=data_args.num_neg_examples,
+                add_explanation=data_args.add_explanation,
+                tk_instruct=data_args.tk_instruct
+            )
         trainer = UIETrainer(
             model=model,
             args=training_args,
@@ -563,16 +586,23 @@ def main():
                 predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
             )
         if trainer.is_world_process_zero():
-            if training_args.predict_with_generate:
-                predictions = tokenizer.batch_decode(
-                    predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
-                )
-                predictions = [pred.strip() for pred in predictions]
-                output_prediction_file = os.path.join(training_args.output_dir, f"predicted_examples.jsonl")
-                with open(output_prediction_file, "w") as fout:
-                    for example, prediction in zip(predict_dataset, predictions):
-                        example["prediction"] = prediction
-                        fout.write(json.dumps(example) + "\n")
+            i_shape, j_shape = predict_results.predictions.shape
+            for i in range(i_shape):
+                for j in range(j_shape):
+                    if predict_results.predictions[i, j] < 0:
+                        predict_results.predictions[i, j] = tokenizer.pad_token_id
+            predictions = tokenizer.batch_decode(
+                predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
+            )
+            predictions = [pred.strip() for pred in predictions]
+            # output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
+            # with open(output_prediction_file, "w") as writer:
+            #     writer.write("\n".join(predictions))
+            output_prediction_file = os.path.join(training_args.output_dir, f"predicted_examples.jsonl")
+            with open(output_prediction_file, "w") as fout:
+                for example, prediction in zip(predict_dataset, predictions):
+                    example["prediction"] = prediction
+                    fout.write(json.dumps(example) + "\n")
 
     if training_args.do_demo:
         logger.info("Serving the model as a demo...")
