@@ -30,20 +30,20 @@ class DataCollatorForUIE:
         if return_tensors is None:
             return_tensors = self.return_tensors
 
-        if 'codegen'.lower() in self.model.config._name_or_path.lower() or 'bloomz'.lower() in self.model.config._name_or_path.lower() :
-            #decoder模型处理
+        if 'codegen'.lower() in self.model.config._name_or_path.lower() or 'bloomz'.lower() in self.model.config._name_or_path.lower():
+            # decoder模型处理
             self.tokenizer.padding_side = 'left'
             sources = []
-            len_list = []
+            label_lens = []
             max_len = -1
             labels = []
 
             for instance in batch:
-                #加入Instruct  既t5模型里的source
+                # 加入Instruct  既t5模型里的source
                 task_input = instance["instruction"]
                 task_input = task_input.format(instance['Instance']['sentence'])
 
-                #处理生成label
+                # 处理生成label
                 # skip json bug
                 entities = json.loads(instance["Instance"]["entities"].replace("'", '"').replace("#$%#", "'"))
                 if entities:
@@ -88,27 +88,26 @@ class DataCollatorForUIE:
                     # labels.append("[]")
                     label = '[]'
 
-                tokenized_source = self.tokenizer(task_input)["input_ids"]
-                if len(tokenized_source) <= self.max_source_length:
-                    len_list.append(len(tokenized_source))
-                    max_len = max(len(tokenized_source), max_len)
-                else:
-                    len_list.append(self.max_source_length)
-                    task_input = self.tokenizer.decode(tokenized_source[:self.max_source_length], skip_special_tokens=True)
+                # add bos and eos
+                task_input = self.tokenizer.bos_token + task_input
+                label = label + self.tokenizer.eos_token + self.tokenizer.pad_token
 
-                # tokenized_source = self.tokenizer(label)["input_ids"]
-                # if len(tokenized_source) <= self.max_source_length:
-                #     pass
-                # else:
-                #     label = self.tokenizer.decode(tokenized_source[:self.max_target_length], skip_special_tokens=True)
+                tokenized_input = self.tokenizer(task_input)["input_ids"]
+                tokenized_label = self.tokenizer(label)["input_ids"]
 
-                labels.append(label)
-                if self.tokenizer.bos_token and self.tokenizer.eos_token and self.tokenizer.pad_token:
-                    sources.append(self.tokenizer.bos_token+task_input+label+self.tokenizer.eos_token+self.tokenizer.pad_token)
-                elif self.tokenizer.bos_token and self.tokenizer.eos_token:
-                    sources.append(self.tokenizer.bos_token+task_input+label+self.tokenizer.eos_token+self.tokenizer.eos_token)
-                else:
+                if len(tokenized_input) + len(tokenized_label) <= self.max_source_length:
+                    max_len = max(len(tokenized_input) + len(tokenized_label), max_len)
+                    label_lens.append(len(tokenized_label))
                     sources.append(task_input + label)
+                else:
+                    max_len = self.max_source_length
+                    input_w_label = self.tokenizer.decode(
+                        (tokenized_input + tokenized_label)[: self.max_source_length],
+                        skip_special_tokens=False
+                    )
+                    sources.append(input_w_label)
+                    label_lens.append(max(0, self.max_source_length - len(tokenized_input)))
+
             if self.text_only:
                 model_inputs = {"inputs": sources}
             else:
@@ -124,11 +123,11 @@ class DataCollatorForUIE:
             label_mask = model_inputs["attention_mask"].bool()
             model_inputs["labels"] = model_inputs['input_ids'].masked_fill(~label_mask, self.label_pad_token_id)
 
-            # TODO, loss mask
+            # loss mask
             max_len = min(max_len, self.max_source_length)
             loss_mask = torch.ones((label_mask.shape))
-            for k, instruct_len in enumerate(len_list):
-                loss_mask[k, : max_len-2] = 0
+            for k, label_len in enumerate(label_lens):
+                loss_mask[k, : max_len - label_len - 2] = 0
             model_inputs['loss_mask'] = loss_mask.masked_fill(~label_mask, 0)
             # loss_label = []
             # for l,i in zip(model_inputs.loss_mask, model_inputs.input_ids):
@@ -199,7 +198,8 @@ class DataCollatorForUIE:
                                 relation_pairs.append(relation_pairs_)
                         if len(event_pairs) > 0:
                             label = ", ".join(
-                                ["(type:{}, trigger:{}, arguments:".format(type, trigger) + ", ".join(arguments) + ")" for
+                                ["(type:{}, trigger:{}, arguments:".format(type, trigger) + ", ".join(arguments) + ")"
+                                 for
                                  (type, trigger, arguments) in event_pairs])
                         elif len(kv_pairs) > 0:
                             label = ", ".join(["{}: {}".format(k, v) for (k, v) in kv_pairs])
@@ -232,4 +232,3 @@ class DataCollatorForUIE:
                 model_inputs["decoder_input_ids"] = decoder_input_ids
 
             return model_inputs
-
