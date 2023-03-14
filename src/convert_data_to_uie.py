@@ -41,7 +41,7 @@ if __name__ == "__main__":
     data_collator = DataCollatorForUIE(
         tokenizer,
         model=None,
-        padding="max_length" if args.pad_to_max_length else "longest",
+        padding="longest",
         max_source_length=args.max_source_length,
         max_target_length=args.max_target_length,
         add_task_definition=args.add_task_definition,

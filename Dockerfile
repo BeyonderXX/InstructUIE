@@ -16,7 +16,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 RUN python -c "import nltk; nltk.download('punkt', quiet=True)"
 
-COPY ds_configs ds_configs
+COPY configs ds_configs
 
 COPY src src
 COPY scripts scripts

@@ -46,7 +46,7 @@ for file_name in file:
     --evaluation_strategy no \
     --save_strategy steps \
     --save_steps 2000 \
-    --deepspeed ds_configs/eval.config \
+    --deepspeed configs/eval.config \
     --run_name t5-experiment
         '''.format(file_name = file_name,output_file=output_file)
     print(cmd)

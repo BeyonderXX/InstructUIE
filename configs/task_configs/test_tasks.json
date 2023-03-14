@@ -1,0 +1,16 @@
+{
+    "RE": [
+        {"sampling strategy": "full", "dataset name": "conll04/"}
+      ],
+      "NER": [
+        {"sampling strategy": "full", "dataset name": "ACE05_coarse-grained"},
+        {"sampling strategy": "full", "dataset name": "conll2003"}
+      ],
+      "EE": [
+        {"sampling strategy": "full", "dataset name": "GENIA"}
+      ]
+}
+
+
+
+

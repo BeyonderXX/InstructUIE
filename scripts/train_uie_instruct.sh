@@ -81,5 +81,5 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port $port src/run_s2s_u
 #     --evaluation_strategy no \
 #     --save_strategy steps \
 #     --save_steps 3856 \
-#     --deepspeed ds_configs/stage2.config \
+#     --deepspeed configs/stage2.config \
 #     --run_name t5-experiment

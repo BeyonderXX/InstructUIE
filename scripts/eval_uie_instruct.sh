@@ -117,7 +117,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port $port src/run_s2s_u
 #     --evaluation_strategy no \
 #     --save_strategy steps \
 #     --save_steps 2000 \
-#     --deepspeed ds_configs/eval.config \
+#     --deepspeed configs/eval.config \
 #     --run_name flan-t5-experiment
 
 
@@ -155,7 +155,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port $port src/run_s2s_u
 #     --evaluation_strategy no \
 #     --save_strategy steps \
 #     --save_steps 2000 \
-#     --deepspeed ./ds_configs/eval.config \
+#     --deepspeed ./configs/eval.config \
 #     --run_name flan-t5-700M-experiment
 
 
@@ -193,5 +193,5 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port $port src/run_s2s_u
 #     --evaluation_strategy no \
 #     --save_strategy steps \
 #     --save_steps 2000 \
-#     --deepspeed ./ds_configs/eval.config \
+#     --deepspeed ./configs/eval.config \
 #     --run_name flan-t5-700M-experiment

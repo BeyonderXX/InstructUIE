@@ -28,7 +28,6 @@ from typing import Optional
 import datasets
 import nltk  # Here to have a nice missing dependency error message early on
 import numpy as np
-# from datasets.utils import set_progress_bar_enabled
 from datasets import load_dataset
 
 import transformers
@@ -38,10 +37,6 @@ from transformers import (
     AutoModelForSeq2SeqLM,
     AutoTokenizer,
     HfArgumentParser,
-    MBart50Tokenizer,
-    MBart50TokenizerFast,
-    MBartTokenizer,
-    MBartTokenizerFast,
     Seq2SeqTrainingArguments,
     set_seed, )
 from transformers.file_utils import is_offline_mode
@@ -55,9 +50,8 @@ from uie_collator_predict import DataCollatorForUIE_decoder
 from uie_trainer import UIETrainer, DenserEvalCallback
 from compute_metrics import compute_metrics, compute_grouped_metrics
 
+# off wandb
 # os.environ['WANDB_DISABLED'] = "True"
-# os.environ["CUDA_VISIBLE_DEVICES"] = '0'
-# set_progress_bar_enabled(False)
 logger = logging.getLogger(__name__)
 CURRENT_DIR = os.path.dirname(__file__)
 
@@ -71,10 +65,6 @@ except (LookupError, OSError):
         )
     with FileLock(".lock") as lock:
         nltk.download("punkt", quiet=True)
-
-# A list of all multilingual tokenizer which require lang attribute.
-MULTILINGUAL_TOKENIZERS = [MBartTokenizer, MBartTokenizerFast, MBart50Tokenizer, MBart50TokenizerFast]
-
 
 @dataclass
 class ModelArguments:
@@ -126,13 +116,18 @@ class DataTrainingArguments:
     """
     lang: str = field(default=None, metadata={"help": "Language id for multilingual model."})
     data_dir: str = field(
-        default=None, metadata={"help": "The directory for saving the NaturalInstructions train/dev/test splits."}
+        default=None, metadata={"help": "The directory for saving the UIE train/dev/test splits."}
     )
-    task_dir: str = field(
-        default=None, metadata={"help": "The directory for saving the NaturalInstructions tasks json files."}
+    task_config_dir: str = field(
+        default=None, metadata={"help": "The json file for config training and testing tasks"}
     )
-    prompt_dir: str = field(
-        default=None, metadata={"help": "The directory for saving the NaturalInstructions tasks json files."}
+    instruction_file: str = field(
+        default=None, metadata={"help": "The instruction file for different tasks."}
+    )
+    instruction_strategy: str = field(
+        default='single', metadata={
+            "help": "How many different instructions to use? Support 'single' and 'multiple' mode."
+        }
     )
     overwrite_cache: bool = field(
         default=False, metadata={"help": "Overwrite the cached training and evaluation sets"}
@@ -148,6 +143,7 @@ class DataTrainingArguments:
             "than this will be truncated, sequences shorter will be padded."
         },
     )
+    # useful for seq2seq model, useless for decoder model
     max_target_length: Optional[int] = field(
         default=128,
         metadata={
@@ -155,12 +151,16 @@ class DataTrainingArguments:
             "than this will be truncated, sequences shorter will be padded."
         },
     )
-    pad_to_max_length: bool = field(
-        default=False,
+    max_new_tokens: Optional[int] = field(
+        default=50,
         metadata={
-            "help": "Whether to pad all samples to model maximum sentence length. "
-            "If False, will pad the samples dynamically when batching to the maximum length in the batch. More "
-            "efficient on GPU but very bad for TPU."
+            "help": "Max new token in decode stage."
+        },
+    )
+    repetition_penalty: Optional[float] = field(
+        default=1.5,
+        metadata={
+            "help": "Penalty for repeat tokens in decode stage."
         },
     )
     max_num_instances_per_task: int = field(
@@ -197,51 +197,24 @@ class DataTrainingArguments:
             "which is used during ``evaluate`` and ``predict``."
         },
     )
+    num_examples: Optional[int] = field(
+        default=0,
+        metadata={"help": "number of in-context positive examples."}
+    )
     ignore_pad_token_for_loss: bool = field(
         default=True,
         metadata={
             "help": "Whether to ignore the tokens corresponding to padded labels in the loss computation or not."
         },
     )
-    source_prefix: Optional[str] = field(
-        default="", metadata={"help": "A prefix to add before every source text (useful for T5 models)."}
-    )
-
-    forced_bos_token: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "The token to force as the first generated token after the decoder_start_token_id."
-            "Useful for multilingual models like mBART where the first generated token"
-            "needs to be the target language token (Usually it is the target language token)"
-        },
-    )
     add_task_name: Optional[bool] = field(
         default=False,
         metadata={"help": "whether to preappend task name before the task input."}
     )
-    add_task_definition: Optional[bool] = field(
-        default=True,
-        metadata={"help": "whether to preappend task definition before the task input."}
-    )
-    num_pos_examples: Optional[int] = field(
-        default=0,
-        metadata={"help": "number of in-context positive examples."}
-    )
-    num_neg_examples: Optional[int] = field(
-        default=0,
-        metadata={"help": "number of in-context negative examples."}
-    )
-    add_explanation: Optional[bool] = field(
+    add_dataset_name: Optional[bool] = field(
         default=False,
-        metadata={"help": "whether to add explanation for both the postive examples and negtive examples."}
+        metadata={"help": "whether to preappend dataset name before the task input."}
     )
-    tk_instruct: Optional[bool] = field(
-        default=False,
-        metadata={"help": "tk_instruct will train a model combining all valid instruction encodings. This will overwrite the other settings about instruction encoding."}
-    )
-
-    def __post_init__(self):
-        pass
 
 
 @dataclass
@@ -252,10 +225,10 @@ class UIETrainingArguments(Seq2SeqTrainingArguments):
     )
     do_demo: bool = field(default=False, metadata={"help": "Whether to run the model as a demo in the terminal."})
     do_predict_onebyone: bool = field(default=False, metadata={"help": "Whether to run the model as a demo in the terminal."})
-    # evaluation_strategy: Optional[str] = field(
-    #     default="epoch",
-    #     metadata={"help": "When to evaluate models"}
-    # )
+    evaluation_strategy: Optional[str] = field(
+        default="epoch",
+        metadata={"help": "When to evaluate models"}
+    )
     save_strategy: Optional[str] = field(
         default="epoch",
         metadata={"help": "When to save models."}
@@ -295,18 +268,6 @@ def main():
     )
     logger.info(f"Training/evaluation parameters {training_args}")
 
-    if data_args.source_prefix is None and model_args.model_name_or_path in [
-        "t5-small",
-        "t5-base",
-        "t5-large",
-        "t5-3b",
-        "t5-11b",
-    ]:
-        logger.warning(
-            "You're running a t5 model but didn't provide a source prefix, which is the expected, e.g. with "
-            "`--source_prefix 'summarize: ' `"
-        )
-
     # Detecting last checkpoint.
     last_checkpoint = None
     if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
@@ -325,17 +286,17 @@ def main():
     # Set seed before initializing model.
     set_seed(training_args.seed)
 
-    # TODO, 创建 builder， 配置 config
-    # TODO， 检查 dataset.py
-    # Get the NaturalInstructions dataset
+    # Get the UIE dataset
     raw_datasets = load_dataset(
         os.path.join(CURRENT_DIR, "uie_dataset.py"),
         data_dir=data_args.data_dir,
-        task_dir=data_args.task_dir,
-        prompt_dir=data_args.prompt_dir,
+        task_config_dir=data_args.task_config_dir,
+        instruction_file=data_args.instruction_file,
+        instruction_strategy=data_args.instruction_strategy,
         cache_dir=model_args.cache_dir,
         max_num_instances_per_task=data_args.max_num_instances_per_task,
-        max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task
+        max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task,
+        num_examples=data_args.num_examples
     )
 
     # Load pretrained model and tokenizer
@@ -356,7 +317,8 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    if 'bloom'.lower() in model_args.model_name_or_path.lower():
+
+    if 'bloom' in model_args.model_name_or_path.lower():
         model = BloomForCausalLM_withloss.from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -368,7 +330,7 @@ def main():
         if tokenizer.pad_token == None:
             tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = 'left'
-    elif 'codegen'.lower() in model_args.model_name_or_path.lower():
+    elif 'codegen' in model_args.model_name_or_path.lower():
         model = CodeGenForCausalLM_with_instruct_loss.from_pretrained(
             model_args.model_name_or_path,
             from_tf=bool(".ckpt" in model_args.model_name_or_path),
@@ -391,14 +353,6 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
-    # 用来判断多语言的EOS
-    if model.config.decoder_start_token_id is None and isinstance(tokenizer, (MBartTokenizer, MBartTokenizerFast)):
-        if isinstance(tokenizer, MBartTokenizer):
-            model.config.decoder_start_token_id = tokenizer.lang_code_to_id[data_args.lang]
-        else:
-            model.config.decoder_start_token_id = tokenizer.convert_tokens_to_ids(data_args.lang)
-
-    # decoder用bos_token和eos_token
     if (
         hasattr(model.config, "max_position_embeddings")
         and model.config.max_position_embeddings < data_args.max_source_length
@@ -417,21 +371,6 @@ def main():
                 f" position encodings. Consider either reducing `--max_source_length` to {model.config.max_position_embeddings} or to automatically "
                 "resize the model's position encodings by passing `--resize_position_embeddings`."
             )
-
-    if isinstance(tokenizer, tuple(MULTILINGUAL_TOKENIZERS)):
-        assert (
-            data_args.lang is not None
-        ), f"{tokenizer.__class__.__name__} is a multilingual tokenizer which requires --lang argument"
-
-        tokenizer.src_lang = data_args.lang
-        tokenizer.tgt_lang = data_args.lang
-
-        # For multilingual translation models like mBART-50 and M2M100 we need to force the target language token
-        # as the first generated token. We ask the user to explicitly provide this as --forced_bos_token argument.
-        forced_bos_token_id = (
-            tokenizer.lang_code_to_id[data_args.forced_bos_token] if data_args.forced_bos_token is not None else None
-        )
-        model.config.forced_bos_token_id = forced_bos_token_id
 
     if training_args.label_smoothing_factor > 0 and not hasattr(model, "prepare_decoder_input_ids_from_labels"):
         logger.warning(
@@ -465,17 +404,13 @@ def main():
     data_collator = DataCollatorForUIE(
         tokenizer,
         model=model,
-        padding="max_length" if data_args.pad_to_max_length else "longest",
+        padding="longest",
         max_source_length=data_args.max_source_length,
         max_target_length=data_args.max_target_length,
         label_pad_token_id=label_pad_token_id,
         pad_to_multiple_of=8 if training_args.fp16 else None,
         add_task_name=data_args.add_task_name,
-        add_task_definition=data_args.add_task_definition,
-        num_pos_examples=data_args.num_pos_examples,
-        num_neg_examples=data_args.num_neg_examples,
-        add_explanation=data_args.add_explanation,
-        tk_instruct=data_args.tk_instruct
+        num_examples=data_args.num_examples
     )
     # we don't want to remove unused columns because we will prepare each batch during training,
     # and some of the information will aslo be used in evaluation.
@@ -560,7 +495,7 @@ def main():
             data_collator = DataCollatorForUIE_decoder(
                 tokenizer,
                 model=model,
-                padding="max_length" if data_args.pad_to_max_length else "longest",
+                padding="longest",
                 max_source_length=data_args.max_source_length,
                 max_target_length=data_args.max_target_length,
                 label_pad_token_id=label_pad_token_id,

@@ -23,11 +23,11 @@ import random
 import datasets
 
 logger = datasets.logging.get_logger(__name__)
+TASK_CONFIG_FILES = {"train": "train_tasks.json", "dev": "dev_tasks.json", "test": "test_tasks.json"}
+INSTRUCTION_STRATEGIES = ['single', 'multiple']
+SINGLE_QUOTES_SUBSTITUTE = "#$%#"
 
 
-# TODO，设计接口，支持 config 文件配置，支持few-shot，zero-shot
-# TODO, 增加 prompt 随机选择功能
-# 怎么保证 prompt 与 任务数据的变形需求灵活匹配？
 class UIEConfig(datasets.BuilderConfig):
     """
     Config dataset load procedure.
@@ -35,8 +35,8 @@ class UIEConfig(datasets.BuilderConfig):
     Args:
         data_dir: task data dir, which contains the corresponding dataset dirs
         prompt_path: prompt json file, which saves task and its prompts map
-        config_path: data loader config, which saves train and test splits.
-         Support two sampling strategies: 0 indicates random sampling, while 1 means to return all samples.
+        task_file: task config file, save training and testing split config, and sampling strategies.
+         Support two sampling strategies: 'random' indicates random sampling, while 'full' means to return all samples.
         max_num_instances_per_task: max training sample size of each task
         max_num_instances_per_eval_task: max eval sample size of each task
     """
@@ -44,42 +44,100 @@ class UIEConfig(datasets.BuilderConfig):
         self,
         *args,
         data_dir=None,
-        prompt_path=None,
-        config_path=None,
+        instruction_file=None,
+        instruction_strategy=None,
+        task_config_dir=None,
+        num_examples=None,
         max_num_instances_per_task=None,
         max_num_instances_per_eval_task=None,
         **kwargs
     ):
         super().__init__(*args, **kwargs)
-        self.data_dir: str = self._check_path(data_dir)
-        self._check_path(prompt_path)
-        self.prompts = self._parse_prompt(prompt_path)
-        self.config_path: str = self._check_path(config_path)
+        self._check_path(data_dir)
+        self._check_path(instruction_file)
+        self._check_path(task_config_dir)
+        assert instruction_strategy in INSTRUCTION_STRATEGIES
 
-        self.max_num_instances_per_task: int = max_num_instances_per_task
-        self.max_num_instances_per_eval_task: int = max_num_instances_per_eval_task
-
-        if not prompt_dir or not os.path.exists(prompt_dir):
-            # print('none')
-            # prompt_dir =r'/workspace/InstructUIE/prompt.json'
-            raise ValueError('Prompt dir {} is not valid, please check the path!'.format(prompt_dir))
-        with open(prompt_dir, 'r') as f:
-            self.prompt_dict = json.loads(f.read())
+        self.data_dir = data_dir
+        self.num_examples = num_examples
+        self.instructions = self._parse_instruction(instruction_file)
+        self.task_configs = self._parse_task_config(task_config_dir)
+        self.instruction_strategy = instruction_strategy
+        self.max_num_instances_per_task = max_num_instances_per_task
+        self.max_num_instances_per_eval_task = max_num_instances_per_eval_task
 
     def _check_path(self, path):
         if not path or not os.path.exists(path):
             raise ValueError('{} is not valid, please check the input path!'.format(path))
 
-        return path
+    def _parse_instruction(self, instruction_file):
+        """
+        Instruction example:
+        {
+          "RE": [
+            {"instruction_type": "zero-shot", "instruction": "Given a phrase that describes the relationship between
+            two words, extract the words and the lexical relationship between them.
+            The output format should be :[(word1, relation, word2)]. \n"},
+          ],
+          "NER": [
+            {"instruction_type": "zero-shot", "instruction": "Please list all entity words in the text that
+            fit the category.Output format is [(word1, type1), (word2, type2))]. \n"},
+          ],
+          "EE": [
+            {"instruction_type": "zero-shot", "instruction": "Extract the event information in the text
+            and return them in the event list. \n"}
+          ]
+        }
+        """
+        instructions = {"zero-shot": {}, "few-shot": {}}
 
-    def _parse_prompt(self, prompt_path):
-        pass
+        with open(instruction_file, 'r+') as f:
+            origin_instructions = json.load(f)
 
-    # TODO, add prompt path
-    def _parse_config(self, config_path):
-        pass
+        for task in origin_instructions:
+            for task_instruction in origin_instructions[task]:
+                instruct_type = task_instruction["instruction_type"]
+                if instruct_type == "zero-shot":
+                    zs_instructions = instructions['zero-shot'].get(task, [])
+                    instructions['zero-shot'][task] = zs_instructions.append(task_instruction["instruction"])
+                elif instruct_type == "few-shot":
+                    fs_instructions = instructions['few-shot'].get(task, [])
+                    instructions['few-shot'][task] = fs_instructions.append(task_instruction["instruction"])
+                else:
+                    raise ValueError("Invalid instruction type {}, please check your instruction file {}"
+                                     .format(instruct_type, instruction_file))
+        return instructions
+
+    def _parse_task_config(self, task_config_dir):
+        """
+        Task config file example:
+            {
+              "RE": [
+                {"sampling strategy": "random", "dataset name": "conll04/"}
+              ],
+              "NER": [
+                {"sampling strategy": "random", "dataset name": "ACE05_coarse-grained"},
+                {"sampling strategy": "full", "dataset name": "conll2003"}
+              ],
+              "EE": [
+                {"sampling strategy": "random", "dataset name": "GENIA"}
+              ]
+            }
+        """
+        task_configs = {}
+        for task, file_name in TASK_CONFIG_FILES.items():
+            task_config_file = os.path.join(task_config_dir, file_name)
+
+            if not os.path.exists(task_config_file):
+                raise ValueError('Please check {} config, {} not exists!'.format(task, file_name))
+
+            with open(task_config_file, 'r+') as f:
+                task_configs[task] = json.loads(f.read())
+
+        return task_configs
 
 
+# TODO, few-shot, 需要 load 的时候就将值存好，放在 "Examples" 里面
 class UIEInstructions(datasets.GeneratorBasedBuilder):
     """InstructUIE Dataset."""
 
@@ -90,28 +148,23 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
     ]
     DEFAULT_CONFIG_NAME = "default"
 
-    # TODO，不同数据集格式需要统一，暂时先按照NER的加载
     def _info(self):
         return datasets.DatasetInfo(
             features=datasets.Features(
                 {
-                    "id": datasets.Value("string"),
                     "Task": datasets.Value("string"),
-                    "instruction": datasets.Value("string"),
-                    "Categories": datasets.Value("string"),
-                    # "Definition": [datasets.Value("string")],
-                    # "Input_language": [datasets.Value("string")],
-                    # "Output_language": [datasets.Value("string")],
-                    # "Instruction_language": [datasets.Value("string")],
-                    # "Domains": [datasets.Value("string")],
-                    # "Instances": [{
-                    #     "input": datasets.Value("string"),
-                    #     "output": [datasets.Value("string")]
-                    # }],
-                    # TODO， 修改命名
-                    "Instance": {
+                    "Dataset": datasets.Value("string"),
+                    "Subset": datasets.Value("string"),
+                    "Samples": [{
+                        "id": datasets.Value("string"),
                         "sentence": datasets.Value("string"),
-                        "entities": datasets.Value("string")
+                        "label": datasets.Value("string"),
+                    }],
+                    "Instance": {
+                        "id": datasets.Value("string"),
+                        "sentence": datasets.Value("string"),
+                        "label": datasets.Value("string"),
+                        "instruction": datasets.Value("string")
                     }
                 }
             ),
@@ -123,18 +176,17 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         if self.config.data_dir is None or self.config.task_dir is None:
             logger.error("Please provide right input: data_dir or task_dir!")
 
-        # 原始代码按照 split dir 去记录数据集信息，分别加载
-        # task dir 存放所有数据集，任务按照split分为了训练和测试，对应于unseen task的测试
-        # 暂时改为有监督setting，根据所有数据集的训练集训练， 同时在所有数据集的测试集上测试，数据全部放在split dir下
+        # split dir save datasets
+        # task config to specify train,dev,test
         split_dir = self.config.data_dir
-        task_dir = self.config.task_dir
+        task_configs = self.config.task_configs
 
         return [
             datasets.SplitGenerator(
                 name=datasets.Split.TRAIN,
                 gen_kwargs={
                     "path": split_dir,
-                    "task_dir": task_dir,
+                    "task_config": task_configs['train'],
                     "max_num_instances_per_task": self.config.max_num_instances_per_task,
                     "subset": "train"
                 }),
@@ -142,7 +194,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.VALIDATION,
                 gen_kwargs={
                     "path": split_dir,
-                    "task_dir": task_dir,
+                    "task_config":  task_configs['dev'],
                     "max_num_instances_per_task": self.config.max_num_instances_per_eval_task,
                     "subset": "dev"
                 }),
@@ -150,212 +202,171 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.TEST,
                 gen_kwargs={
                     "path": split_dir,
-                    "task_dir": task_dir,
-                    "max_num_instances_per_task": self.config.max_num_instances_per_eval_task,
+                    "task_config": task_configs['test'],
+                    "max_num_instances_per_task": None,     # default load total test samples to test
                     "subset": "test"
                 }),
         ]
 
-    # 原始path为train/test文件路径，现在可以不用task_dir，直接在path下加载
-    def _generate_examples(self, path=None, task_dir=None, max_num_instances_per_task=None, subset=None):
+    def _load_dataset(self, dataset_path, labels_path):
+        with open(dataset_path, encoding="utf-8") as task_f:
+            s = task_f.read()
+            instances = json.loads(s)
+        with open(labels_path, encoding="utf-8") as labels_f:
+            labels = json.load(labels_f)
+
+        return instances, labels
+
+    def _get_instruction(self, task):
+        if self.config.num_examples is not None and self.config.num_examples > 0:
+            task_instructions = self.config.instructions['few-shot'][task]
+        else:
+            task_instructions = self.config.instructions['zero-shot'][task]
+        if self.config.instruction_strategy == "single":
+            return task_instructions[0]
+        else:
+            return random.choice(task_instructions)
+
+    def _sampling_dataset(self, instances, sampling_strategy, max_num_instances):
+        if sampling_strategy == 'random' and max_num_instances is not None and max_num_instances >= 0:
+            instances = instances[:max_num_instances]
+
+        return instances
+
+    def load_NER_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
+        instances, labels = self._load_dataset(dataset_path, labels_path)
+        # TODO, support few-shot
+        sample_template = {"Task": "NER", "Dataset": dataset_name, "Samples": [], "subset": subset}
+
+        labels_str = ','.join(labels)
+        instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
+
+        for idx, instance in enumerate(instances):
+            example = sample_template.copy()
+            instruction = self._get_instruction('NER')
+            instruction += "Option:" + labels_str + " \n " + "{0}" + "\n" + "Answer: "
+            kv_pairs = []
+
+            for entity in instance['entities']:
+                if entity['type'] == 'NA' or entity['type'] == '':
+                    continue
+                kv_pair = [entity['name'], entity['type']]
+                kv_pairs.append(kv_pair)
+
+            if len(kv_pairs) > 0:
+                label = ", ".join(["({},{})".format(k, v) for (k, v) in kv_pairs])
+            else:
+                label = "None"
+
+            example["Instance"] = {
+                "id": str(idx),
+                "sentence": instance['sentence'],
+                "label": label,
+                "instruction": instruction
+            }
+
+            yield example
+
+    def load_RE_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
+        instances, labels = self._load_dataset(dataset_path, labels_path)
+        sample_template = {"Task": "RE", "Dataset": dataset_name, "Samples": [], "subset": subset}
+
+        labels_str = ','.join(labels)
+        instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
+
+        for idx, instance in enumerate(instances):
+            example = sample_template.copy()
+            instruction = self._get_instruction('RE')
+            instruction += "Option:" + labels_str + " \n " + "{0}" + "\n" + "Answer: "
+            relation_pairs = []
+
+            for relation in instance['relations']:
+                if relation['type'] == 'NA' or relation['type'] == '':
+                    continue
+                relation_pair = [relation['head']['name'], relation['type'], relation['tail']['name']]
+                relation_pairs.append(relation_pair)
+
+            if len(relation_pairs) > 0:
+                label = ", ".join(["({}, {}, {})".format(h, r, t) for (h, r, t) in relation_pairs])
+            else:
+                label = 'None'
+
+            example["Instance"] = {
+                "id": str(idx),
+                "sentence": instance['sentence'],
+                "label": label,
+                "instruction": instruction
+            }
+
+            yield example
+
+    def load_EE_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
+        instances, labels = self._load_dataset(dataset_path, labels_path)
+        sample_template = {"Task": "EE", "Dataset": dataset_name, "Samples": [], "subset": subset}
+
+        # TODO, reconstruct Event Instruction to two stage
+        labels_str = f'Event type: {labels[0]}, Arguments type: {labels[1]}'
+        instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
+
+        for idx, instance in enumerate(instances):
+            example = sample_template.copy()
+            instruction = self._get_instruction('RE')
+            instruction += "Option:" + labels_str + " \n " + "{0}" + "\n" + "Answer: "
+            event_pairs = []
+
+            for k, event in enumerate(instance['events']):
+                instance['events'][k]['trigger'] = event['trigger'].replace("'", SINGLE_QUOTES_SUBSTITUTE)
+                instance['events'][k]['type'] = event['type'].replace("'", SINGLE_QUOTES_SUBSTITUTE)
+
+                if event['type'] == 'NA' or event['type'] == '':
+                    continue
+                event_type = event['type']
+                event_trigger = event['trigger']
+                event_arguments = ["(name:{},role:{})".format(argument['name'], argument['role']) for
+                                   argument in event['arguments']]
+                event_pair = [event_type, event_trigger, event_arguments]
+                event_pairs.append(event_pair)
+
+            if len(event_pairs) > 0:
+                label = ", ".join(["(type:{}, trigger:{}, arguments:".format(type, trigger)
+                                   + ", ".join(arguments) + ")" for (type, trigger, arguments) in event_pairs])
+            else:
+                label = 'None'
+
+            example["Instance"] = {
+                "id": str(idx),
+                "sentence": instance['sentence'],
+                "label": label,
+                "instruction": instruction
+            }
+
+            yield example
+
+    def _generate_examples(self, path=None, task_config=None, max_num_instances_per_task=None, subset=None):
         """Yields examples."""
         logger.info(f"Generating tasks from = {path}")
-        assert os.path.exists(path)
-        task_dir = task_dir.split(',')
-        for task_catagory in task_dir:
-            task_path = os.path.join(path, task_catagory)
-            for task_file_name in os.listdir(task_path):
-                task_file_path_ = os.path.join(task_path, task_file_name)
-                task_file_path = os.path.join(task_file_path_, subset + ".json")
 
-                id = 0
-                instruction_list = self.config.prompt_dict[task_catagory]
-                instruction = random.choice(instruction_list)
-                labels_path = os.path.join(task_file_path_, "labels.json")
+        for task in task_config:
+            if task == "NER":
+                load_func = self.load_NER_dataset
+            elif task == 'RE':
+                load_func = self.load_RE_dataset
+            elif task == 'EE':
+                load_func = self.load_EE_dataset
+            else:
+                raise ValueError("Unsupport {} task, plz check {} task config!".format(task, subset))
 
-                with open(task_file_path, encoding="utf-8") as task_f:
-                    s = task_f.read()
-                    instances = json.loads(s)
+            # load dataset
+            for dataset in task_config[task]:
+                ds_name = dataset["dataset name"]
+                sampling_strategy = dataset.get("sampling strategy", "random")
+                ds_path = os.path.join(path, task, ds_name, subset + '.json')
+                labels_path = os.path.join(path, task, ds_name, 'labels.json')
+                assert os.path.exists(ds_path)
+                assert os.path.exists(labels_path)
 
-                sample_template = {"Task": task_file_name}
-                sample_template["Categories"] = task_catagory
-                sample_template["instruction"] = instruction
+                idx = -1
+                for sample in load_func(ds_path, labels_path, ds_name, sampling_strategy, max_num_instances_per_task, subset):
+                    idx += 1
+                    yield f"{task}##{ds_path}##{idx}", sample
 
-                if max_num_instances_per_task is not None and max_num_instances_per_task >= 0:
-                    random.shuffle(instances)
-                    instances = instances[:max_num_instances_per_task]
-
-                if task_catagory == 'EE':
-                    with open(labels_path, encoding="utf-8") as labels_f:
-                        labels_json = json.load(labels_f)
-                        # labels_str = ','.join(labels_json)
-                        labels_str = f'Event type: {labels_json[0]}, Arguments type: {labels_json[1]}'
-                        instruction += "Option:" + labels_str + " \n " + "Answer: "
-                        sample_template["instruction"] = instruction
-
-                    for idx, instance in enumerate(instances):
-                        example = sample_template.copy()
-                        example["id"] = str(idx)
-                        # 解决引号问题
-                        for k, event in enumerate(instance['events']):
-                            instance['events'][k]['trigger'] = event['trigger'].replace("'", "#$%#")
-                            instance['events'][k]['type'] = event['type'].replace("'", "#$%#")
-
-                            for k1, argument in enumerate(event['arguments']):
-                                instance['events'][k]['arguments'][k1]['name'] = argument['name'].replace("'", "#$%#")
-                                instance['events'][k]['arguments'][k1]['role'] = argument['role'].replace("'", "#$%#")
-
-                        example["Instance"] = {
-                            "sentence": instance['sentence'],
-                            "entities": json.dumps(instance['events'])
-                        }
-                        id += 1
-                        yield f"{task_file_name}##{idx}", example
-
-                if task_catagory == 'RE':
-                    with open(labels_path, encoding="utf-8") as labels_f:
-                        labels_json = json.load(labels_f)
-                        labels_str = ','.join(labels_json)
-                        instruction += "Option:" + labels_str + " \n " + "Answer: "
-                        sample_template["instruction"] = instruction
-
-                    for idx, instance in enumerate(instances):
-                        example = sample_template.copy()
-                        example["id"] = str(idx)
-                        for k, entity in enumerate(instance['relations']):
-                            instance['relations'][k]['head']['name'] = entity['head']['name'].replace("'", "#$%#")
-                            instance['relations'][k]['tail']['name'] = entity['tail']['name'].replace("'", "#$%#")
-                            instance['relations'][k]['type'] = entity['type'].replace("'", "#$%#")
-                        example["Instance"] = {
-                            "sentence": instance['sentence'],
-                            "entities": json.dumps(instance['relations'])
-                        }
-                        id += 1
-                        yield f"{task_file_name}##{idx}", example
-
-                if task_catagory == 'NER':
-                    with open(labels_path, encoding="utf-8") as labels_f:
-                        labels_json = json.load(labels_f)
-                        labels_str = ','.join(labels_json)
-                        instruction += "Option:" + labels_str + " \n " + "Answer: "
-                        sample_template["instruction"] = instruction
-
-                    for idx, instance in enumerate(instances):
-                        example = sample_template.copy()
-                        example["id"] = str(idx)
-                        for k, entity in enumerate(instance['entities']):
-                            instance['entities'][k]['type'] = entity['type'].replace("'", "#$%#")
-                            instance['entities'][k]['name'] = entity['name'].replace("'", "#$%#")
-                        example["Instance"] = {
-                            "sentence": instance['sentence'],
-                            "entities": json.dumps(instance['entities'])
-                        }
-                        id += 1
-                        yield f"{task_file_name}##{idx}", example
-
-
-
-# test program
-def load_examples(path=None, task_dir = None , max_num_instances_per_task=None, subset=None):
-    """Yields examples."""
-    with open(r'/workspace/InstructUIE/data/prompt.json', 'r') as f:
-        prompt_dict = json.loads(f.read())
-
-    """Yields examples."""
-    logger.info(f"Generating tasks from = {path}")
-    assert os.path.exists(path)
-    task_dir = task_dir.split(',')
-    for task_catagory in task_dir:
-        task_path = os.path.join(path, task_catagory)
-        for task_file_name in os.listdir(task_path):
-            task_file_path_ = os.path.join(task_path, task_file_name)
-            task_file_path = os.path.join(task_file_path_, subset + ".json")
-
-            id = 0
-            instruction_list = prompt_dict[task_catagory]
-            instruction = random.choice(instruction_list)
-            labels_path = os.path.join(task_file_path_, "labels.json")
-
-            with open(labels_path, encoding="utf-8") as labels_f:
-                labels_json = json.load(labels_f)
-                labels_str = ','.join(labels_json)
-                instruction += "Option:" + labels_str + " \n " + "Answer: "
-
-            with open(task_file_path, encoding="utf-8") as task_f:
-                s = task_f.read()
-                task_data_list = json.loads(s)
-                sample_template = {"Task": task_file_name}
-                sample_template["Categories"] = task_catagory
-                sample_template["instruction"] = instruction
-                instances = task_data_list
-            if max_num_instances_per_task is not None and max_num_instances_per_task >= 0:
-                random.shuffle(instances)
-                instances = instances[:max_num_instances_per_task]
-
-            if task_catagory == 'EE':
-                with open(labels_path, encoding="utf-8") as labels_f:
-                    labels_json = json.load(labels_f)
-                    # labels_str = ','.join(labels_json)
-                    labels_str = f'Event type: {labels_json[0]}, Arguments type: {labels_json[1]}'
-                    instruction += "Option:" + labels_str + " \n " + "Answer: "
-                    sample_template["instruction"] = instruction
-
-                for idx, instance in enumerate(instances):
-                    example = sample_template.copy()
-                    example["id"] = str(idx)
-                    # 解决引号问题
-                    for k, event in enumerate(instance['events']):
-                        instance['events'][k]['trigger'] = event['trigger'].replace("'", "#$%#")
-                        instance['events'][k]['type'] = event['type'].replace("'", "#$%#")
-
-                        for k1, argument in enumerate(event['arguments']):
-                            instance['events'][k]['arguments'][k1]['name'] = argument['name'].replace("'", "#$%#")
-                            instance['events'][k]['arguments'][k1]['role'] = argument['role'].replace("'", "#$%#")
-
-                    example["Instance"] = {
-                        "sentence": instance['sentence'],
-                        "entities": json.dumps(instance['events'])
-                    }
-                    id += 1
-
-                    yield f"{task_file_name}##{idx}", example
-
-            if task_catagory == 'RE':
-                for idx, instance in enumerate(instances):
-                    example = sample_template.copy()
-                    example["id"] = str(idx)
-                    for k, entity in enumerate(instance['relations']):
-                        instance['relations'][k]['head']['name'] = entity['head']['name'].replace("'", "#$%#")
-                        instance['relations'][k]['tail']['name'] = entity['tail']['name'].replace("'", "#$%#")
-                        instance['relations'][k]['type'] = entity['type'].replace("'", "#$%#")
-                    example["Instance"] = {
-                        "sentence": instance['sentence'],
-                        "entities": json.dumps(instance['relations'])
-                    }
-                    id += 1
-
-                    yield f"{task_file_name}##{idx}", example
-
-            if task_catagory == 'NER':
-                for idx, instance in enumerate(instances):
-                    example = sample_template.copy()
-                    example["id"] = str(idx)
-                    for k, entity in enumerate(instance['entities']):
-                        instance['entities'][k]['type'] = entity['type'].replace("'", "#$%#")
-                        instance['entities'][k]['name'] = entity['name'].replace("'", "#$%#")
-                    example["Instance"] = {
-                        "sentence": instance['sentence'],
-                        "entities": json.dumps(instance['entities'])
-                    }
-                    id += 1
-
-                    yield f"{task_file_name}##{idx}", example
-
-
-if __name__ == "__main__":
-    sample_genor = load_examples(path=r'/workspace/original',task_dir=','.join(['EE']),
-                                 max_num_instances_per_task=5, subset='train')
-
-    id = 0
-    for sample in sample_genor:
-        print(sample)

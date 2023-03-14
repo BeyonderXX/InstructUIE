@@ -244,9 +244,9 @@ class UIETrainer(Seq2SeqTrainer):
 
         # XXX: adapt synced_gpus for fairscale as well
         gen_kwargs = {
-            "num_beams": 1,
             "synced_gpus": True if is_deepspeed_zero3_enabled() else False,
-            # TODO
+            # TODO, load from args
+            "num_beams": 1,
             "repetition_penalty": 1.5,
             "max_new_tokens": 50,
         }

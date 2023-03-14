@@ -96,6 +96,6 @@ deepspeed \
 #     --evaluation_strategy no \
 #     --save_strategy steps \
 #     --save_steps 2000 \
-#     --deepspeed ds_configs/stage2.config \
+#     --deepspeed configs/stage2.config \
 #     --bf16 \
 #     --run_name t5-experiment

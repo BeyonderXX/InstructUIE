@@ -150,7 +150,7 @@ if experiment_group == "model":
             d['tasks'][0]['resources']['gpuCount'] = 8
             # d['tasks'][0]['command'].remove("--bf16")  # stage 3 is currently 4x slower with bf16
             # set_argument_value(d['tasks'][0]['command'], "--generation_max_length", 10)
-            # set_argument_value(d['tasks'][0]['command'], "--deepspeed", "ds_configs/stage3.config")
+            # set_argument_value(d['tasks'][0]['command'], "--deepspeed", "configs/stage3.config")
         elif "11b" in model_name or "-xxl" in model_name:
             set_argument_value(d['tasks'][0]['command'], "--per_device_train_batch_size", 1)
             set_argument_value(d['tasks'][0]['command'], "--per_device_eval_batch_size", 8)
@@ -160,7 +160,7 @@ if experiment_group == "model":
             d['tasks'][0]['command'].remove("--bf16") # stage 3 is currently 4x slower with bf16
             #set_argument_value(d['tasks'][0]['command'], "--max_source_length", 1024)
             set_argument_value(d['tasks'][0]['command'], "--generation_max_length", 10)
-            set_argument_value(d['tasks'][0]['command'], "--deepspeed", "ds_configs/stage3.config")
+            set_argument_value(d['tasks'][0]['command'], "--deepspeed", "configs/stage3.config")
             
         print(d)
 
@@ -317,9 +317,9 @@ if experiment_group == "eval_pretrained_models":
             d['tasks'][0]['command'].remove("--do_train")
             d['tasks'][0]['command'].remove("--bf16")
             # d['tasks'][0]['command'].remove("--deepspeed")
-            # d['tasks'][0]['command'].remove("ds_configs/stage2.config")
+            # d['tasks'][0]['command'].remove("configs/stage2.config")
 
-            set_argument_value(d['tasks'][0]['command'], "--deepspeed", "ds_configs/stage3.config")
+            set_argument_value(d['tasks'][0]['command'], "--deepspeed", "configs/stage3.config")
             set_argument_value(d['tasks'][0]['command'], "--master_port", random.randint(25000, 35000))
             set_argument_value(d['tasks'][0]['command'], "--disable_tqdm", False)
 
@@ -348,7 +348,7 @@ if experiment_group == "eval_pretrained_models":
             elif "11b" in model_name or "11B" in model_name or "-xxl" in model_name or model_name == "bigscience/T0":
                 set_argument_value(d['tasks'][0]['command'], "--per_device_eval_batch_size", 2)
                 d['tasks'][0]['resources']['gpuCount'] = 8
-                set_argument_value(d['tasks'][0]['command'], "--deepspeed", "ds_configs/stage3.config")
+                set_argument_value(d['tasks'][0]['command'], "--deepspeed", "configs/stage3.config")
             
             set_argument_value(d['tasks'][0]['command'], "--run_name", name)
             print(d)
@@ -395,9 +395,9 @@ if experiment_group == "eval_ckpt":
             d['tasks'][0]['command'].remove("--do_train")
             d['tasks'][0]['command'].remove("--bf16")
             d['tasks'][0]['command'].remove("--deepspeed")
-            d['tasks'][0]['command'].remove("ds_configs/stage2.config")
+            d['tasks'][0]['command'].remove("configs/stage2.config")
 
-            # set_argument_value(d['tasks'][0]['command'], "--deepspeed", "ds_configs/stage3.config")
+            # set_argument_value(d['tasks'][0]['command'], "--deepspeed", "configs/stage3.config")
             # set_argument_value(d['tasks'][0]['command'], "--master_port", random.randint(25000, 35000))
             set_argument_value(d['tasks'][0]['command'], "--disable_tqdm", False)
 
@@ -512,7 +512,7 @@ if experiment_group == "multilingual":
             d['tasks'][0]['command'].remove("--bf16") # stage 3 is currently 4x slower with bf16
             #set_argument_value(d['tasks'][0]['command'], "--max_source_length", 1024)
             set_argument_value(d['tasks'][0]['command'], "--generation_max_length", 10)
-            set_argument_value(d['tasks'][0]['command'], "--deepspeed", "ds_configs/stage3.config")
+            set_argument_value(d['tasks'][0]['command'], "--deepspeed", "configs/stage3.config")
             
         set_argument_value(d['tasks'][0]['command'], "--data_dir", f"/data/supervised/multilingual/")
         set_argument_value(d['tasks'][0]['command'], "--max_num_instances_per_task", 1000)
