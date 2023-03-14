@@ -74,13 +74,13 @@ class MetricF1NA(MetricF1):
     "对于RE中关系类型为NA的特殊处理"
     def update(self, y_truth: set, y_pred: set):
         for truth in y_truth:
-            if ',NA,' in truth:
-                pattern = re.escape(truth).replace(',NA,', ',(.+),')
+            if ',na,' in truth:
+                pattern = re.escape(truth).replace(',na,', ',(.+),')    # 因为在evaluator._extract的时候就全部变为了小写，所以是na而非NA
                 pattern = re.compile(pattern)
                 pred_fail = False
                 for pred in y_pred:
                     match = pattern.match(pred)
-                    if match is not None and match.group(1) != 'NA':     # truth: (A,NA,B); pred:(A,notNA,B)
+                    if match is not None and match.group(1) != 'na':     # truth: (A,NA,B); pred:(A,notNA,B)
                         pred_fail = True
                         break
                 if not pred_fail:       # 只有当预测中没有给出错误的明确肯定时才加TP
@@ -91,13 +91,13 @@ class MetricF1NA(MetricF1):
                 else:
                     self.sum_FN += 1
         for pred in y_pred:
-            if ',NA,' in pred:
-                pattern = re.escape(pred).replace(',NA,', ',(.+),')
+            if ',na,' in pred:
+                pattern = re.escape(pred).replace(',na,', ',(.+),')
                 pattern = re.compile(pattern)
                 pred_fail = False
                 for truth in y_truth:
                     match = pattern.match(truth)
-                    if match is not None and match.group(1) != 'NA':    # pred: (A,NA,B); truth:(A,notNA,B)
+                    if match is not None and match.group(1) != 'na':    # pred: (A,NA,B); truth:(A,notNA,B)
                         pred_fail = True
                         break
                 if pred_fail:
@@ -156,7 +156,7 @@ class AuditNA(AuditBase):
     "检测包含类型为NA的输出，目前只用于RE"
     def _check(self, last) -> bool:
         for i in last['y_pred']:    # assert isinstance(i, str)
-            if ',NA,' in i:
+            if ',na,' in i:
                 return True
         return False
 
@@ -278,7 +278,7 @@ class EvaluatorNER(EvaluatorBase):
         for ent in tmp:
             ent = ent['type']+':'+ent['name']
             ent = self._remove_redundant_space(ent)
-            entity_truth.add(ent)
+            entity_truth.add(ent.lower())
         
         entity_pred = set()
         for ent in predict.split(','):
@@ -287,7 +287,7 @@ class EvaluatorNER(EvaluatorBase):
                 # 预测中不符合格式的实体会被抛弃
                 ent = ent[0].strip()+':'+ent[1].strip()
                 ent = self._remove_redundant_space(ent)
-                entity_pred.add(ent)
+                entity_pred.add(ent.lower())
         return entity_truth, entity_pred
 
 class EvaluatorRE(EvaluatorBase):
@@ -313,7 +313,7 @@ class EvaluatorRE(EvaluatorBase):
             # type为'no_relation'或'NA'的关系现在不忽略，下同
             rel = '(%s,%s,%s)'%(head, rel_type, tail)
             rel = self._remove_redundant_space(rel)
-            y_truth.add(rel)
+            y_truth.add(rel.lower())
 
         y_pred = set()
         if predict.strip() not in {'no relation', '[]'}:
@@ -326,7 +326,7 @@ class EvaluatorRE(EvaluatorBase):
                     rel_type = elements[1]
                     rel = '(%s,%s,%s)'%elements
                     rel = self._remove_redundant_space(rel)
-                    y_pred.add(rel)
+                    y_pred.add(rel.lower())
         return y_truth, y_pred
 
 class EvaluatorMRC(EvaluatorBase):
@@ -337,7 +337,7 @@ class EvaluatorMRC(EvaluatorBase):
 
         truth = self._remove_redundant_space(json_data['answer_text'])
         pred = self._remove_redundant_space(predict)
-        return truth, pred
+        return truth.lower(), pred.lower()
 
 
 class EvaluatorSM(EvaluatorBase):
@@ -358,7 +358,7 @@ class EvaluatorSM(EvaluatorBase):
             y_truth = trans_dict[y_truth]
         if y_pred in trans_dict:
             y_pred = trans_dict[y_pred]
-        return y_truth, y_pred
+        return y_truth.lower(), y_pred.lower()
 
 class EvaluatorEvent(EvaluatorBase):
     def _init_metric(self):
@@ -383,7 +383,7 @@ class EvaluatorEvent(EvaluatorBase):
             
             event_string = ','.join(sorted(event_elements)) # 'a:b,c:d'
             event_string = self._remove_redundant_space(event_string)
-            y_truth.add(event_string)
+            y_truth.add(event_string.lower())
         
         y_pred = set()
         for event in re.findall(r'\(.+?\)', predict):
@@ -399,7 +399,7 @@ class EvaluatorEvent(EvaluatorBase):
             if valid_event:
                 event_string = ','.join(sorted(pair_strings))
                 event_string = self._remove_redundant_space(event_string)
-                y_pred.add(event_string)
+                y_pred.add(event_string.lower())
         return y_truth, y_pred
 
 if __name__ == '__main__':
