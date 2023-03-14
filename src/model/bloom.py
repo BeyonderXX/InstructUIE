@@ -7,7 +7,7 @@ from transformers import add_start_docstrings
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 from transformers.models.bloom.modeling_bloom import BloomForCausalLM
 
-class BloomForCausalLM_withloss(BloomForCausalLM):
+class BloomForCausalLM_WithLoss(BloomForCausalLM):
 
     def forward(
         self,

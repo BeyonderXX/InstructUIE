@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from nltk import sent_tokenize
 
 CURRENT_DIR = os.path.dirname(__file__)
+GPT2TOKENIZER = os.path.join(CURRENT_DIR, "../data/gpt2tokenizer")
 
 @dataclass
 class CustomizedArguments:
@@ -36,7 +37,7 @@ if __name__ == "__main__":
         max_num_instances_per_eval_task=args.max_num_instances_per_eval_task
     )
 
-    tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+    tokenizer = GPT2TokenizerFast.from_pretrained(GPT2TOKENIZER)
     # 数据集加载后处理为sample
     data_collator = DataCollatorForUIE(
         tokenizer,

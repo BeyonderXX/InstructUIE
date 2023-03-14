@@ -6,12 +6,15 @@ export TRANSFORMERS_CACHE=/root/.cache/huggingface
 
 port=$(shuf -i25000-30000 -n1)
 
+# 注意 保证模型保存文件夹路径中包含模型文件名
+# 注意 resume_from_checkpoint 和 model_name_or_path 保持一致
+
 ###########
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port $port src/run_s2s_uie_multitask_decoder.py \
     --do_predict \
     --resume_from_checkpoint $1 \
     --predict_with_generate \
-    --model_name_or_path /mnt/data/user/zhou_weikang/model_cache/flan-t5-large \
+    --model_name_or_path $1 \
     --max_source_length 768 \
     --max_target_length 768 \
     --generation_max_length 768 \

@@ -42,10 +42,9 @@ from transformers import (
 from transformers.file_utils import is_offline_mode
 from transformers.trainer_utils import get_last_checkpoint
 
-from src.model.bloom import BloomForCausalLM_withloss
-from src.model.codegen import CodeGenForCausalLM_with_instruct_loss
+from src.model.bloom import BloomForCausalLM_WithLoss
+from src.model.codegen import CodeGenForCausalLM_WithLoss
 from uie_collator import DataCollatorForUIE
-from uie_collator_predict import DataCollatorForUIE_decoder
 
 from uie_trainer import UIETrainer, DenserEvalCallback
 from compute_metrics import compute_metrics, compute_grouped_metrics
@@ -143,9 +142,9 @@ class DataTrainingArguments:
             "than this will be truncated, sequences shorter will be padded."
         },
     )
-    # useful for seq2seq model, useless for decoder model
+    # for decoder model, it means max_new_tokens
     max_target_length: Optional[int] = field(
-        default=128,
+        default=50,
         metadata={
             "help": "The maximum total sequence length for target text after tokenization. Sequences longer "
             "than this will be truncated, sequences shorter will be padded."
@@ -158,7 +157,7 @@ class DataTrainingArguments:
         },
     )
     repetition_penalty: Optional[float] = field(
-        default=1.5,
+        default=1,
         metadata={
             "help": "Penalty for repeat tokens in decode stage."
         },
@@ -191,7 +190,7 @@ class DataTrainingArguments:
         },
     )
     num_beams: Optional[int] = field(
-        default=None,
+        default=1,
         metadata={
             "help": "Number of beams to use for evaluation. This argument will be passed to ``model.generate``, "
             "which is used during ``evaluate`` and ``predict``."
@@ -319,38 +318,24 @@ def main():
     )
 
     if 'bloom' in model_args.model_name_or_path.lower():
-        model = BloomForCausalLM_withloss.from_pretrained(
-            model_args.model_name_or_path,
-            from_tf=bool(".ckpt" in model_args.model_name_or_path),
-            config=config,
-            cache_dir=model_args.cache_dir,
-            revision=model_args.model_revision,
-            use_auth_token=True if model_args.use_auth_token else None,
-        )
-        if tokenizer.pad_token == None:
+        model_class = BloomForCausalLM_WithLoss
+        if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = 'left'
     elif 'codegen' in model_args.model_name_or_path.lower():
-        model = CodeGenForCausalLM_with_instruct_loss.from_pretrained(
-            model_args.model_name_or_path,
-            from_tf=bool(".ckpt" in model_args.model_name_or_path),
-            config=config,
-            cache_dir=model_args.cache_dir,
-            revision=model_args.model_revision,
-            use_auth_token=True if model_args.use_auth_token else None,
-        )
+        model_class = CodeGenForCausalLM_WithLoss
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = 'left'
     else:
-        model = AutoModelForSeq2SeqLM.from_pretrained(
-            model_args.model_name_or_path,
-            from_tf=bool(".ckpt" in model_args.model_name_or_path),
-            config=config,
-            cache_dir=model_args.cache_dir,
-            revision=model_args.model_revision,
-            use_auth_token=True if model_args.use_auth_token else None,
-        )
-
+        model_class = AutoModelForSeq2SeqLM
+    model = model_class.from_pretrained(
+        model_args.model_name_or_path,
+        from_tf=bool(".ckpt" in model_args.model_name_or_path),
+        config=config,
+        cache_dir=model_args.cache_dir,
+        revision=model_args.model_revision,
+        use_auth_token=True if model_args.use_auth_token else None,
+    )
     model.resize_token_embeddings(len(tokenizer))
 
     if (
@@ -453,6 +438,7 @@ def main():
 
     # Training
     # 训练epoch数，按照 num_train_epochs 传入，在trainer中解析
+    # TODO, train debug, bloomz, flan-t5
     if training_args.do_train:
         checkpoint = None
         if training_args.resume_from_checkpoint is not None:
@@ -471,7 +457,7 @@ def main():
         trainer.log_metrics("train", metrics)
         trainer.save_metrics("train", metrics)
         trainer.save_state()
-        print(metrics)
+        logger.info(f"Metrics {metrics}")
 
     # Evaluation
     results = {}
@@ -482,6 +468,7 @@ def main():
     )
     num_beams = data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
 
+    # TODO, test debug, bloomz, flan-t5
     if training_args.do_predict:
         logger.info("*** Prediction ***")
         logger.info("*** Loading CheckPoint ***")
@@ -491,28 +478,6 @@ def main():
         if training_args.resume_from_checkpoint is not None:
             checkpoint = training_args.resume_from_checkpoint
         model = model.from_pretrained(checkpoint)
-        if 'bloom'.lower() in model_args.model_name_or_path.lower() or 'codegen'.lower() in model_args.model_name_or_path.lower():
-            data_collator = DataCollatorForUIE_decoder(
-                tokenizer,
-                model=model,
-                padding="longest",
-                max_source_length=data_args.max_source_length,
-                max_target_length=data_args.max_target_length,
-                label_pad_token_id=label_pad_token_id,
-                pad_to_multiple_of=8 if training_args.fp16 else None,
-                add_task_name=data_args.add_task_name,
-                add_task_definition=data_args.add_task_definition,
-                num_pos_examples=data_args.num_pos_examples,
-                num_neg_examples=data_args.num_neg_examples,
-                add_explanation=data_args.add_explanation,
-                tk_instruct=data_args.tk_instruct
-            )
-        trainer = UIETrainer(
-            model=model,
-            args=training_args,
-            tokenizer=tokenizer,
-            data_collator=data_collator,
-        )
 
         if data_args.max_predict_samples is not None:
             predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
@@ -521,11 +486,13 @@ def main():
                 predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
             )
         if trainer.is_world_process_zero():
-            i_shape, j_shape = predict_results.predictions.shape
-            for i in range(i_shape):
-                for j in range(j_shape):
-                    if predict_results.predictions[i, j] < 0:
-                        predict_results.predictions[i, j] = tokenizer.pad_token_id
+            # TODO, DEBUG
+            # i_shape, j_shape = predict_results.predictions.shape
+            # for i in range(i_shape):
+            #     for j in range(j_shape):
+            #         if predict_results.predictions[i, j] < 0:
+            #             predict_results.predictions[i, j] = tokenizer.pad_token_id
+
             predictions = tokenizer.batch_decode(
                 predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
             )
@@ -534,7 +501,7 @@ def main():
             # with open(output_prediction_file, "w") as writer:
             #     writer.write("\n".join(predictions))
             output_prediction_file = os.path.join(training_args.output_dir, f"predicted_examples.jsonl")
-            with open(output_prediction_file, "w") as fout:
+            with open(output_prediction_file, "w+") as fout:
                 for example, prediction in zip(predict_dataset, predictions):
                     example["prediction"] = prediction
                     fout.write(json.dumps(example) + "\n")

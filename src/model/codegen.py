@@ -4,7 +4,7 @@ from transformers import CodeGenForCausalLM
 from transformers.modeling_outputs import CausalLMOutputWithPast
 import torch.nn.functional as F
 
-class CodeGenForCausalLM_with_instruct_loss(CodeGenForCausalLM):
+class CodeGenForCausalLM_WithLoss(CodeGenForCausalLM):
 
     def forward(
         self,

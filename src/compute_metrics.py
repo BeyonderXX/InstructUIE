@@ -1,19 +1,20 @@
 import string
-import re
 import json
-import sys
 import os
 import argparse
 import logging
-from collections import Counter
+
 from rouge import rouge_scorer
 from transformers import AutoTokenizer
 
 
 logger = logging.getLogger(__name__)
+CURRENT_DIR = os.path.dirname(__file__)
+GPT2TOKENIZER = os.path.join(CURRENT_DIR, "../data/gpt2tokenizer")
+
 
 class GPTTokenizer:
-    gpt_tokenizer = AutoTokenizer.from_pretrained("gpt2", max_length=1e5)
+    gpt_tokenizer = AutoTokenizer.from_pretrained(GPT2TOKENIZER, max_length=1e5)
 
     def tokenize(self, s):
         tokens = self.gpt_tokenizer.tokenize(s)
@@ -22,6 +23,7 @@ class GPTTokenizer:
         # So, we remove all the added spaces ("Ġ"). 
         tokens = [t.lstrip("Ġ") for t in tokens]
         return tokens
+
 
 xlingual_tokenizer = GPTTokenizer()
 

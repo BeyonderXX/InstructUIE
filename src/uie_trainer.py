@@ -5,6 +5,8 @@ from transformers.trainer import *
 from datasets import load_metric
 from transformers.trainer_callback import TrainerCallback
 
+from src.uie_collator import SUPPORTED_DECODER_MODELS, check_model
+
 
 class DenserEvalCallback(TrainerCallback):
 
@@ -28,7 +30,6 @@ class DenserEvalCallback(TrainerCallback):
 
 class UIETrainer(Seq2SeqTrainer):
 
-    # TODO ?
     # rewrite the evaluation loop, with customized call to compute_metrics
     def evaluation_loop(
         self,
@@ -84,9 +85,6 @@ class UIETrainer(Seq2SeqTrainer):
         # Do this before wrapping.
         eval_dataset = dataloader.dataset
 
-        if is_torch_tpu_available():
-            dataloader = pl.ParallelLoader(dataloader, [args.device]).per_device_loader(args.device)
-
         if args.past_index >= 0:
             self._past = None
 
@@ -114,9 +112,6 @@ class UIETrainer(Seq2SeqTrainer):
 
             # Prediction step
             loss, logits, labels = self.prediction_step(model, inputs, prediction_loss_only, ignore_keys=ignore_keys)
-
-            if is_torch_tpu_available():
-                xm.mark_step()
 
             # Update containers on host
             if loss is not None:
@@ -245,10 +240,10 @@ class UIETrainer(Seq2SeqTrainer):
         # XXX: adapt synced_gpus for fairscale as well
         gen_kwargs = {
             "synced_gpus": True if is_deepspeed_zero3_enabled() else False,
-            # TODO, load from args
-            "num_beams": 1,
-            "repetition_penalty": 1.5,
-            "max_new_tokens": 50,
+            "repetition_penalty": self.args.repetition_penalty,
+            "num_beams":  self._num_beams if self._num_beams is not None else self.model.config.num_beams,
+            "max_length": self._max_length if self._max_length is not None else self.model.config.max_length,
+            "max_new_tokens": self._max_length if self._max_length is not None else self.model.config.max_length,
         }
 
         if "attention_mask" in inputs:
@@ -267,7 +262,11 @@ class UIETrainer(Seq2SeqTrainer):
             **gen_kwargs,
         )
         # in case the batch is shorter than max length, the output should be padded
-        gen_kwargs["max_length"] = 768
+        if check_model(self.model.config._name_or_path, SUPPORTED_DECODER_MODELS):
+            gen_kwargs["max_length"] = self.args.max_source_length + self.args.max_target_length
+        else:
+            gen_kwargs["max_length"] = self.args.max_target_length
+
         if generated_tokens.shape[-1] < gen_kwargs["max_length"]:
             generated_tokens = self._pad_tensors_to_max_len(generated_tokens, gen_kwargs["max_length"])
 
