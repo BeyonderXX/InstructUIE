@@ -132,3 +132,4 @@ dmypy.json
 hostfile
 wandb/
 output/
+exp.py

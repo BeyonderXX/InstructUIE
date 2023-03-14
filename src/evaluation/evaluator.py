@@ -74,13 +74,13 @@ class MetricF1NA(MetricF1):
     "对于RE中关系类型为NA的特殊处理"
     def update(self, y_truth: set, y_pred: set):
         for truth in y_truth:
-            if ',NA,' in truth:
-                pattern = truth.replace(',NA,', ',(.+),')
+            if ',na,' in truth:
+                pattern = re.escape(truth).replace(',na,', ',(.+),')    # 因为在evaluator._extract的时候就全部变为了小写，所以是na而非NA
                 pattern = re.compile(pattern)
                 pred_fail = False
                 for pred in y_pred:
                     match = pattern.match(pred)
-                    if match is not None and match.group(1) != 'NA':     # truth: (A,NA,B); pred:(A,notNA,B)
+                    if match is not None and match.group(1) != 'na':     # truth: (A,NA,B); pred:(A,notNA,B)
                         pred_fail = True
                         break
                 if not pred_fail:       # 只有当预测中没有给出错误的明确肯定时才加TP
@@ -91,13 +91,13 @@ class MetricF1NA(MetricF1):
                 else:
                     self.sum_FN += 1
         for pred in y_pred:
-            if ',NA,' in pred:
-                pattern = pred.replace(',NA,', ',(.+),')
+            if ',na,' in pred:
+                pattern = re.escape(pred).replace(',na,', ',(.+),')
                 pattern = re.compile(pattern)
                 pred_fail = False
                 for truth in y_truth:
                     match = pattern.match(truth)
-                    if match is not None and match.group(1) != 'NA':    # pred: (A,NA,B); truth:(A,notNA,B)
+                    if match is not None and match.group(1) != 'na':    # pred: (A,NA,B); truth:(A,notNA,B)
                         pred_fail = True
                         break
                 if pred_fail:
@@ -109,8 +109,8 @@ class MetricF1NA(MetricF1):
                     self.sum_FP += 1
 
 class AuditBase:
-    def __init__(self, name, record_limit=16):
-        self.name = name
+    def __init__(self, record_limit=16):
+        # record_limit: maximum size of record, `-1` for infinite, `0` for no record
         self.record_limit = record_limit
         self.cnt = 0
         self.record = []
@@ -123,11 +123,24 @@ class AuditBase:
             self.cnt += 1
             if self.record_limit < 0 or len(self.record) < self.record_limit:
                 # record limit check
-                self.record.append(last)
+                self.record.append({
+                    'json_data': last['json_data'],
+                    'predict': last['predict'],
+                    'y_truth': list(last['y_truth']),
+                    'y_pred': list(last['y_pred'])
+                })
     def get_cnt(self):
         return self.cnt
     def get_record(self):
         return self.record
+    def get_report(self):
+        return {
+            'count': self.cnt,
+            'record': self.record
+        }
+    def get_name(self):
+        # 默认为类名，如果想要定制名字的话请考虑重载此方法
+        return self.__class__.__name__
 
 class AuditVoid(AuditBase):
     "检测空输出"
@@ -143,7 +156,7 @@ class AuditNA(AuditBase):
     "检测包含类型为NA的输出，目前只用于RE"
     def _check(self, last) -> bool:
         for i in last['y_pred']:    # assert isinstance(i, str)
-            if ',NA,' in i:
+            if ',na,' in i:
                 return True
         return False
 
@@ -169,16 +182,23 @@ class AuditRepeat(AuditBase):
         match = re.search(pattern, last['predict'])
         return match is not None
 
+class AuditRetard(AuditBase):
+    "检测零分"
+    def _check(self, last) -> bool:
+        last_metric = last['metric']
+        if hasattr(last_metric, 'last_TP'):
+            return last_metric.last_TP == 0
+        else:
+            return False
+
 class EvaluatorBase:
-    def __init__(self, record_limit=-1):
-        # record_limit: maximum size of record, `-1` for infinite, `0` for no record
-        self.record_limit = record_limit
+    def __init__(self):
+        self.last = dict()
         self._init_audit()
         self._init_metric()
     
     def _init_metric(self):
         # must be overrided to init self.metric
-        self.last = dict()
         self.metric = MetricBase()
 
     def _init_audit(self):
@@ -187,7 +207,8 @@ class EvaluatorBase:
         self.audit = [
             AuditVoid(),
             AuditLong(),
-            AuditRepeat()
+            AuditRepeat(),
+            AuditRetard()
         ]
     
     def _update_audit(self):
@@ -225,13 +246,20 @@ class EvaluatorBase:
         self.last['y_pred'] = y_pred
         self.last['metric'] = self.metric
 
-        self._update_audit(self.last)
+        self._update_audit()
     
-    def get_matric(self) -> float:
+    def get_metric(self) -> float:
         return self.metric.get_metric()
 
-    def get_record(self):
-        return self.record
+    def get_audit_report(self):
+        '获取所有审计项结果报告'
+        return {
+            a.get_name() : a.get_report()
+            for a in self.audit
+        }
+    def dump_audit_report(self, fpath):
+        with open(fpath, 'w', encoding='utf-8') as f:
+            json.dump(self.get_audit_report(), f, indent=4)
 
     @staticmethod
     def _remove_redundant_space(s):
@@ -242,14 +270,16 @@ class EvaluatorNER(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricF1()
     def _extract(self, json_data, predict):
+        predict = predict.split('Answer:')[-1]
+
         entity_truth = set()
         tmp = json.loads(json_data['Instance']['entities'].replace("'",'"'))
 
         for ent in tmp:
             ent = ent['type']+':'+ent['name']
             ent = self._remove_redundant_space(ent)
-            entity_truth.add(ent)
-
+            entity_truth.add(ent.lower())
+        
         entity_pred = set()
         for ent in predict.split(','):
             ent = ent.split(':')
@@ -257,7 +287,7 @@ class EvaluatorNER(EvaluatorBase):
                 # 预测中不符合格式的实体会被抛弃
                 ent = ent[0].strip()+':'+ent[1].strip()
                 ent = self._remove_redundant_space(ent)
-                entity_pred.add(ent)
+                entity_pred.add(ent.lower())
         return entity_truth, entity_pred
 
 class EvaluatorRE(EvaluatorBase):
@@ -272,6 +302,9 @@ class EvaluatorRE(EvaluatorBase):
         ]
 
     def _extract(self, json_data, predict):
+        # predict中理应只包含模型自己输出的内容，而不包含prompt，但这里还是处理一下
+        predict = predict.split('Answer:')[-1]
+
         y_truth = set()
         for rel in json.loads(json_data['Instance']['entities']):
             head = rel['head']['name']
@@ -280,10 +313,7 @@ class EvaluatorRE(EvaluatorBase):
             # type为'no_relation'或'NA'的关系现在不忽略，下同
             rel = '(%s,%s,%s)'%(head, rel_type, tail)
             rel = self._remove_redundant_space(rel)
-            y_truth.add(rel)
-
-        # predict中理应只包含模型自己输出的内容，而不包含prompt，但这里还是处理一下
-        predict = predict.split('Answer:')[-1]
+            y_truth.add(rel.lower())
 
         y_pred = set()
         if predict.strip() not in {'no relation', '[]'}:
@@ -296,22 +326,26 @@ class EvaluatorRE(EvaluatorBase):
                     rel_type = elements[1]
                     rel = '(%s,%s,%s)'%elements
                     rel = self._remove_redundant_space(rel)
-                    y_pred.add(rel)
+                    y_pred.add(rel.lower())
         return y_truth, y_pred
 
 class EvaluatorMRC(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricF1()
     def _extract(self, json_data, predict):
+        predict = predict.split('Answer:')[-1]
+
         truth = self._remove_redundant_space(json_data['answer_text'])
         pred = self._remove_redundant_space(predict)
-        return truth, pred
+        return truth.lower(), pred.lower()
 
 
 class EvaluatorSM(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricAcc()
     def _extract(self, json_data, predict):
+        predict = predict.split('Answer:')[-1]
+
         y_truth = self._remove_redundant_space(json_data['label'])
         y_pred = self._remove_redundant_space(predict)
         trans_dict = {
@@ -324,12 +358,14 @@ class EvaluatorSM(EvaluatorBase):
             y_truth = trans_dict[y_truth]
         if y_pred in trans_dict:
             y_pred = trans_dict[y_pred]
-        return y_truth, y_pred
+        return y_truth.lower(), y_pred.lower()
 
 class EvaluatorEvent(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricAcc()
     def _extract(self, json_data, predict):
+        predict = predict.split('Answer:')[-1]
+
         y_truth = set()
         for event in json_data['events']:
             event_elements = []
@@ -347,7 +383,7 @@ class EvaluatorEvent(EvaluatorBase):
             
             event_string = ','.join(sorted(event_elements)) # 'a:b,c:d'
             event_string = self._remove_redundant_space(event_string)
-            y_truth.add(event_string)
+            y_truth.add(event_string.lower())
         
         y_pred = set()
         for event in re.findall(r'\(.+?\)', predict):
@@ -363,7 +399,7 @@ class EvaluatorEvent(EvaluatorBase):
             if valid_event:
                 event_string = ','.join(sorted(pair_strings))
                 event_string = self._remove_redundant_space(event_string)
-                y_pred.add(event_string)
+                y_pred.add(event_string.lower())
         return y_truth, y_pred
 
 if __name__ == '__main__':
@@ -375,7 +411,7 @@ if __name__ == '__main__':
     def test(evaluator:EvaluatorBase, json_str, predict):
         json_data = json.loads(json_str)
         evaluator.add(json_data, predict)
-        print(evaluator.get_matric())
+        print(evaluator.get_metric())
         print(evaluator.get_record)
     
     # 因为后来的实际格式与最初表格中的不同，因此下列测试可能无法通过，仅作为示例s

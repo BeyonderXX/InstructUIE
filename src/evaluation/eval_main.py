@@ -1,3 +1,4 @@
+# 本代码已不再维护，请使用evaluator.py
 import json
 import re
 
