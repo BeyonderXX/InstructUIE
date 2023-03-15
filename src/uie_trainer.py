@@ -6,7 +6,7 @@ from transformers.trainer import *
 from datasets import load_metric
 from transformers.trainer_callback import TrainerCallback
 
-from src.uie_collator import SUPPORTED_DECODER_MODELS, check_model
+from uie_collator import SUPPORTED_DECODER_MODELS, check_model
 
 
 class DenserEvalCallback(TrainerCallback):

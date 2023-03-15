@@ -42,10 +42,9 @@ from transformers import (
 from transformers.file_utils import is_offline_mode
 from transformers.trainer_utils import get_last_checkpoint
 
-from src.model.bloom import BloomForCausalLM_WithLoss
-from src.model.codegen import CodeGenForCausalLM_WithLoss
+from model.bloom import BloomForCausalLM_WithLoss
+from model.codegen import CodeGenForCausalLM_WithLoss
 from uie_collator import DataCollatorForUIE
-from src.uie_collator import SUPPORTED_DECODER_MODELS, check_model
 
 
 from uie_trainer import UIETrainer, DenserEvalCallback
@@ -53,7 +52,7 @@ from compute_metrics import compute_metrics, compute_grouped_metrics
 
 # off wandb
 # os.environ['WANDB_DISABLED'] = "True"
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 logger = logging.getLogger(__name__)
 CURRENT_DIR = os.path.dirname(__file__)
 
@@ -223,15 +222,6 @@ class UIETrainingArguments(Seq2SeqTrainingArguments):
         metadata={"help": "If specifid, the model will do more evaluation at the beginning of training."}
     )
     do_demo: bool = field(default=False, metadata={"help": "Whether to run the model as a demo in the terminal."})
-    do_predict_onebyone: bool = field(default=False, metadata={"help": "Whether to run the model as a demo in the terminal."})
-    evaluation_strategy: Optional[str] = field(
-        default="epoch",
-        metadata={"help": "When to evaluate models"}
-    )
-    save_strategy: Optional[str] = field(
-        default="epoch",
-        metadata={"help": "When to save models."}
-    )
 
 
 def main():
