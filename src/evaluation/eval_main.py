@@ -87,7 +87,7 @@ def eval_NER(json_data, y_pred: str):
     return: TP, FN, FP
     """
     entity_truth = set()
-    tmp = json.loads(json_data['Instance']['entities'].replace("'",'"'))
+    tmp = json.loads(json_data['instance']['entities'].replace("'",'"'))
 
     for ent in tmp:
         ent = ent['type']+':'+ent['name']

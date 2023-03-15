@@ -79,7 +79,7 @@ def compute_metrics(predictions, references, xlingual=False):
     assert len(predictions) == len(references), f"# of predictions {len(predictions)} doesn't match # of references {len(references)}."
     exact_match, rouge1, rougeL = 0, 0, 0
     for pred, gold in zip(predictions, references):
-        assert isinstance(gold, list)
+        gold = [gold]
         exact_match += metric_max_over_ground_truths(
             exact_match_score, prediction=pred, ground_truths=gold, xlingual=xlingual
         )
@@ -132,11 +132,11 @@ if __name__ == "__main__":
         examples = [json.loads(l) for l in fin]
 
     predictions = [e["prediction"] for e in examples]
-    references = [e["Instance"]["output"] for e in examples]
+    references = [e["instance"]["output"] for e in examples]
     tasks = []
     for e in examples:
-        if e["Task"] == "task121_atomic_question_rewriting":
-            e["Task"] = "task121_zest_question_rewriting"
+        if e["task"] == "task121_atomic_question_rewriting":
+            e["task"] = "task121_zest_question_rewriting"
         tasks.append(e["Task"])
 
     results = compute_metrics(predictions, references, xlingual=args.track == "xlingual")

@@ -45,12 +45,15 @@ from transformers.trainer_utils import get_last_checkpoint
 from src.model.bloom import BloomForCausalLM_WithLoss
 from src.model.codegen import CodeGenForCausalLM_WithLoss
 from uie_collator import DataCollatorForUIE
+from src.uie_collator import SUPPORTED_DECODER_MODELS, check_model
+
 
 from uie_trainer import UIETrainer, DenserEvalCallback
 from compute_metrics import compute_metrics, compute_grouped_metrics
 
 # off wandb
 # os.environ['WANDB_DISABLED'] = "True"
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 logger = logging.getLogger(__name__)
 CURRENT_DIR = os.path.dirname(__file__)
 
@@ -131,6 +134,9 @@ class DataTrainingArguments:
     overwrite_cache: bool = field(
         default=False, metadata={"help": "Overwrite the cached training and evaluation sets"}
     )
+    input_record_file: str = field(
+        default=None, metadata={"help": "file to record model input"}
+    )
     preprocessing_num_workers: Optional[int] = field(
         default=None,
         metadata={"help": "The number of processes to use for the preprocessing."},
@@ -150,16 +156,17 @@ class DataTrainingArguments:
             "than this will be truncated, sequences shorter will be padded."
         },
     )
-    max_new_tokens: Optional[int] = field(
-        default=50,
-        metadata={
-            "help": "Max new token in decode stage."
-        },
-    )
     repetition_penalty: Optional[float] = field(
-        default=1,
+        default=1.0,
         metadata={
             "help": "Penalty for repeat tokens in decode stage."
+        },
+    )
+    num_beams: Optional[int] = field(
+        default=1,
+        metadata={
+            "help": "Number of beams to use for evaluation. This argument will be passed to ``model.generate``, "
+            "which is used during ``evaluate`` and ``predict``."
         },
     )
     max_num_instances_per_task: int = field(
@@ -187,13 +194,6 @@ class DataTrainingArguments:
         metadata={
             "help": "For debugging purposes or quicker training, truncate the number of prediction examples to this "
             "value if set."
-        },
-    )
-    num_beams: Optional[int] = field(
-        default=1,
-        metadata={
-            "help": "Number of beams to use for evaluation. This argument will be passed to ``model.generate``, "
-            "which is used during ``evaluate`` and ``predict``."
         },
     )
     num_examples: Optional[int] = field(
@@ -395,7 +395,8 @@ def main():
         label_pad_token_id=label_pad_token_id,
         pad_to_multiple_of=8 if training_args.fp16 else None,
         add_task_name=data_args.add_task_name,
-        num_examples=data_args.num_examples
+        num_examples=data_args.num_examples,
+        input_record_file=data_args.input_record_file
     )
     # we don't want to remove unused columns because we will prepare each batch during training,
     # and some of the information will aslo be used in evaluation.
@@ -404,11 +405,11 @@ def main():
     # Metric
     def compute_rouge_metrics(dataset, preds, save_prefix=None):
         decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
-        references = [e["Instance"]["output"] for e in dataset]
+        references = [e["Instance"]["label"] for e in dataset]
         result = compute_metrics(predictions=decoded_preds, references=references)
         result_per_task = compute_grouped_metrics(predictions=decoded_preds, references=references, groups=dataset["Task"])
         result.update(result_per_task)
-        categories = ["_".join(it[0].lower().split()) for it in dataset["Categories"]]
+        categories = dataset["Dataset"]
         result_per_category = compute_grouped_metrics(predictions=decoded_preds, references=references, groups=categories)
         result.update(result_per_category)
         prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
@@ -419,7 +420,7 @@ def main():
                 for example, pred in zip(dataset, decoded_preds):
                     fout.write(json.dumps({
                         "Task": example["Task"],
-                        "Definition": example["Definition"],
+                        "Dataset": example["Dataset"],
                         "Instance": example["Instance"],
                         "Prediction": pred
                     }) + "\n")
@@ -432,9 +433,11 @@ def main():
         eval_dataset=eval_dataset if training_args.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
-        compute_metrics=compute_rouge_metrics if training_args.predict_with_generate else None,
+        compute_metrics=compute_rouge_metrics,
         callbacks=[DenserEvalCallback] if training_args.denser_evaluation else None
     )
+
+    all_metrics = {"run_name": training_args.run_name}
 
     # Training
     # 训练epoch数，按照 num_train_epochs 传入，在trainer中解析
@@ -458,15 +461,19 @@ def main():
         trainer.save_metrics("train", metrics)
         trainer.save_state()
         logger.info(f"Metrics {metrics}")
+        all_metrics.update(metrics)
 
     # Evaluation
     results = {}
+    # in case the batch is shorter than max length, the output should be padded
     max_length = (
         training_args.generation_max_length
         if training_args.generation_max_length is not None
         else data_args.max_target_length
     )
+
     num_beams = data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
+    repetition_penalty = data_args.repetition_penalty
 
     # TODO, test debug, bloomz, flan-t5
     if training_args.do_predict:
@@ -477,14 +484,29 @@ def main():
             checkpoint = get_last_checkpoint(training_args.output_dir)
         if training_args.resume_from_checkpoint is not None:
             checkpoint = training_args.resume_from_checkpoint
-        model = model.from_pretrained(checkpoint)
+        trainer.model.from_pretrained(checkpoint)
 
         if data_args.max_predict_samples is not None:
             predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
 
         predict_results = trainer.predict(
-                predict_dataset, metric_key_prefix="predict", max_length=max_length, num_beams=num_beams
-            )
+            predict_dataset,
+            metric_key_prefix="predict",
+            max_length=max_length,
+            num_beams=num_beams,
+            repetition_penalty=repetition_penalty
+        )
+        metrics = predict_results.metrics
+        max_predict_samples = (
+            data_args.max_predict_samples if data_args.max_predict_samples is not None else len(predict_dataset)
+        )
+        metrics["predict_samples"] = min(max_predict_samples, len(predict_dataset))
+
+        trainer.log(metrics)
+        trainer.log_metrics("predict", metrics)
+        trainer.save_metrics("predict", metrics)
+        all_metrics.update(metrics)
+
         if trainer.is_world_process_zero():
             # TODO, DEBUG
             # i_shape, j_shape = predict_results.predictions.shape

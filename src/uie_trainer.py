@@ -1,5 +1,6 @@
 import string
 import re
+from transformers import GenerationConfig
 from transformers.trainer_seq2seq import Seq2SeqTrainer
 from transformers.trainer import *
 from datasets import load_metric
@@ -238,16 +239,13 @@ class UIETrainer(Seq2SeqTrainer):
         inputs = self._prepare_inputs(inputs)
 
         # XXX: adapt synced_gpus for fairscale as well
-        gen_kwargs = {
-            "synced_gpus": True if is_deepspeed_zero3_enabled() else False,
-            "repetition_penalty": self.args.repetition_penalty,
-            "num_beams":  self._num_beams if self._num_beams is not None else self.model.config.num_beams,
-            "max_length": self._max_length if self._max_length is not None else self.model.config.max_length,
-            "max_new_tokens": self._max_length if self._max_length is not None else self.model.config.max_length,
-        }
+        gen_kwargs = self._gen_kwargs
+        gen_kwargs["synced_gpus"] = True if is_deepspeed_zero3_enabled() else False
 
         if "attention_mask" in inputs:
             gen_kwargs["attention_mask"] = inputs.get("attention_mask", None)
+
+        generation_config = GenerationConfig(**gen_kwargs)
 
         # prepare generation inputs
         # some encoder-decoder models can have varying encder's and thus
@@ -259,16 +257,18 @@ class UIETrainer(Seq2SeqTrainer):
 
         generated_tokens = self.model.generate(
             generation_inputs,
-            **gen_kwargs,
+            generation_config=generation_config
         )
+
+        bs, source_len = inputs['input_ids'].shape
         # in case the batch is shorter than max length, the output should be padded
         if check_model(self.model.config._name_or_path, SUPPORTED_DECODER_MODELS):
-            gen_kwargs["max_length"] = self.args.max_source_length + self.args.max_target_length
+            max_length = source_len + gen_kwargs["max_length"]
         else:
-            gen_kwargs["max_length"] = self.args.max_target_length
+            max_length = gen_kwargs["max_length"]
 
-        if generated_tokens.shape[-1] < gen_kwargs["max_length"]:
-            generated_tokens = self._pad_tensors_to_max_len(generated_tokens, gen_kwargs["max_length"])
+        if generated_tokens.shape[-1] < max_length:
+            generated_tokens = self._pad_tensors_to_max_len(generated_tokens, max_length)
 
         with torch.no_grad():
             if has_labels:

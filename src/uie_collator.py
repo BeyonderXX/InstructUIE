@@ -65,7 +65,7 @@ class DataCollatorForUIE:
         # TODO, support few shot
         # add few shot samples
         samples = ''
-        if instance['Samples'] > 0:
+        if len(instance['Samples']) > 0:
             raise Exception('Few shot is coming soon...')
         if samples:
             content = samples + content
@@ -208,10 +208,15 @@ class DataCollatorForUIE:
             return
 
         loss_label = []
-        for loss, id in zip(model_inputs.loss_mask, model_inputs.input_ids):
-            loss_label.append(self.tokenizer.decode((loss * id).view(-1).int()))
+        if hasattr(model_inputs, 'loss_mask'):
+            for loss, id in zip(model_inputs.loss_mask, model_inputs.input_ids):
+                loss_label.append(self.tokenizer.decode((loss * id).view(-1).int()))
 
-        with open(self.input_record_file, 'a+', encoding='utf-8') as f:
-            for text, mask_label in zip(sources, loss_label):
-                f.write(text+'\n')
-                f.write(mask_label+'\n\n')
+            with open(self.input_record_file, 'a+', encoding='utf-8') as f:
+                for text, mask_label in zip(sources, loss_label):
+                    f.write(text+'\n')
+                    f.write(mask_label+'\n\n')
+        else:
+            with open(self.input_record_file, 'a+', encoding='utf-8') as f:
+                for text in sources:
+                    f.write(text + '\n')

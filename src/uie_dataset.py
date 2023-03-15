@@ -28,6 +28,16 @@ INSTRUCTION_STRATEGIES = ['single', 'multiple']
 SINGLE_QUOTES_SUBSTITUTE = "#$%#"
 
 
+def check_path(path):
+    if not path or not os.path.exists(path):
+        raise ValueError('{} is not valid, please check the input path!'.format(path))
+
+
+def save_ds(instances, file_name):
+    with open(file_name, "w+", encoding='utf-8') as fi:
+        json.dump(instances, fi, ensure_ascii=False, indent=2)
+
+
 class UIEConfig(datasets.BuilderConfig):
     """
     Config dataset load procedure.
@@ -53,11 +63,6 @@ class UIEConfig(datasets.BuilderConfig):
         **kwargs
     ):
         super().__init__(*args, **kwargs)
-        self._check_path(data_dir)
-        self._check_path(instruction_file)
-        self._check_path(task_config_dir)
-        assert instruction_strategy in INSTRUCTION_STRATEGIES
-
         self.data_dir = data_dir
         self.num_examples = num_examples
         self.instructions = self._parse_instruction(instruction_file)
@@ -65,10 +70,6 @@ class UIEConfig(datasets.BuilderConfig):
         self.instruction_strategy = instruction_strategy
         self.max_num_instances_per_task = max_num_instances_per_task
         self.max_num_instances_per_eval_task = max_num_instances_per_eval_task
-
-    def _check_path(self, path):
-        if not path or not os.path.exists(path):
-            raise ValueError('{} is not valid, please check the input path!'.format(path))
 
     def _parse_instruction(self, instruction_file):
         """
@@ -89,6 +90,8 @@ class UIEConfig(datasets.BuilderConfig):
           ]
         }
         """
+        if not instruction_file:
+            return None
         instructions = {"zero-shot": {}, "few-shot": {}}
 
         with open(instruction_file, 'r+') as f:
@@ -98,11 +101,11 @@ class UIEConfig(datasets.BuilderConfig):
             for task_instruction in origin_instructions[task]:
                 instruct_type = task_instruction["instruction_type"]
                 if instruct_type == "zero-shot":
-                    zs_instructions = instructions['zero-shot'].get(task, [])
-                    instructions['zero-shot'][task] = zs_instructions.append(task_instruction["instruction"])
+                    instructions['zero-shot'][task] = instructions['zero-shot'].get(task, [])
+                    instructions['zero-shot'][task].append(task_instruction["instruction"])
                 elif instruct_type == "few-shot":
-                    fs_instructions = instructions['few-shot'].get(task, [])
-                    instructions['few-shot'][task] = fs_instructions.append(task_instruction["instruction"])
+                    instructions['few-shot'][task] = instructions['few-shot'].get(task, [])
+                    instructions['few-shot'][task].append(task_instruction["instruction"])
                 else:
                     raise ValueError("Invalid instruction type {}, please check your instruction file {}"
                                      .format(instruct_type, instruction_file))
@@ -113,7 +116,7 @@ class UIEConfig(datasets.BuilderConfig):
         Task config file example:
             {
               "RE": [
-                {"sampling strategy": "random", "dataset name": "conll04/"}
+                {"sampling strategy": "random", "dataset name": "conll04"}
               ],
               "NER": [
                 {"sampling strategy": "random", "dataset name": "ACE05_coarse-grained"},
@@ -124,6 +127,9 @@ class UIEConfig(datasets.BuilderConfig):
               ]
             }
         """
+        if not task_config_dir:
+            return None
+
         task_configs = {}
         for task, file_name in TASK_CONFIG_FILES.items():
             task_config_file = os.path.join(task_config_dir, file_name)
@@ -154,7 +160,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 {
                     "Task": datasets.Value("string"),
                     "Dataset": datasets.Value("string"),
-                    "Subset": datasets.Value("string"),
+                    "subset": datasets.Value("string"),
                     "Samples": [{
                         "id": datasets.Value("string"),
                         "sentence": datasets.Value("string"),
@@ -173,8 +179,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
     def _split_generators(self, dl_manager):
         """Returns SplitGenerators."""
-        if self.config.data_dir is None or self.config.task_dir is None:
-            logger.error("Please provide right input: data_dir or task_dir!")
+        if self.config.data_dir is None or self.config.task_configs is None:
+            logger.error("Please provide right input: data_dir or task_config_dir!")
 
         # split dir save datasets
         # task config to specify train,dev,test
@@ -218,6 +224,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         return instances, labels
 
     def _get_instruction(self, task):
+        assert self.config.instruction_strategy in INSTRUCTION_STRATEGIES
         if self.config.num_examples is not None and self.config.num_examples > 0:
             task_instructions = self.config.instructions['few-shot'][task]
         else:
@@ -244,7 +251,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('NER')
-            instruction += "Option:" + labels_str + " \n " + "{0}" + "\n" + "Answer: "
+            instruction += "Option:" + labels_str + " \n " + "Text: " + "{0}" + "\n" + "Answer: "
             kv_pairs = []
 
             for entity in instance['entities']:
@@ -254,7 +261,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 kv_pairs.append(kv_pair)
 
             if len(kv_pairs) > 0:
-                label = ", ".join(["({},{})".format(k, v) for (k, v) in kv_pairs])
+                label = ", ".join(["({}, {})".format(k, v) for (k, v) in kv_pairs])
             else:
                 label = "None"
 
@@ -277,7 +284,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('RE')
-            instruction += "Option:" + labels_str + " \n " + "{0}" + "\n" + "Answer: "
+            instruction += "Option:" + labels_str + " \n " + "Text: " + "{0}" + "\n" + "Answer: "
             relation_pairs = []
 
             for relation in instance['relations']:
@@ -311,7 +318,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('RE')
-            instruction += "Option:" + labels_str + " \n " + "{0}" + "\n" + "Answer: "
+            instruction += "Option:" + labels_str + " \n " + "Text: " + "{0}" + "\n" + "Answer: "
             event_pairs = []
 
             for k, event in enumerate(instance['events']):
@@ -324,12 +331,14 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 event_trigger = event['trigger']
                 event_arguments = ["(name:{},role:{})".format(argument['name'], argument['role']) for
                                    argument in event['arguments']]
+
+                event_arguments = "None" if not event_arguments else ", ".join(event_arguments)
                 event_pair = [event_type, event_trigger, event_arguments]
                 event_pairs.append(event_pair)
 
             if len(event_pairs) > 0:
-                label = ", ".join(["(type:{}, trigger:{}, arguments:".format(type, trigger)
-                                   + ", ".join(arguments) + ")" for (type, trigger, arguments) in event_pairs])
+                label = ", ".join(["(type:{}, trigger:{}, arguments:{})".format(type, trigger, arguments)
+                                  for (type, trigger, arguments) in event_pairs])
             else:
                 label = 'None'
 
@@ -366,7 +375,12 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 assert os.path.exists(labels_path)
 
                 idx = -1
+                instances = []
                 for sample in load_func(ds_path, labels_path, ds_name, sampling_strategy, max_num_instances_per_task, subset):
                     idx += 1
+                    instances.append(sample)
                     yield f"{task}##{ds_path}##{idx}", sample
 
+                # # save for data check
+                # if subset == 'train':
+                #     save_ds(instances, ds_name)
