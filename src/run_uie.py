@@ -45,14 +45,14 @@ from transformers.trainer_utils import get_last_checkpoint
 from model.bloom import BloomForCausalLM_WithLoss
 from model.codegen import CodeGenForCausalLM_WithLoss
 from uie_collator import DataCollatorForUIE
+from uie_collator import SUPPORTED_DECODER_MODELS, check_model
 
-
-from uie_trainer import UIETrainer, DenserEvalCallback
+from uie_trainer import UIETrainer, DenserEvalCallback, skip_instructions
 from compute_metrics import compute_metrics, compute_grouped_metrics
 
 # off wandb
-# os.environ['WANDB_DISABLED'] = "True"
-# os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+os.environ['WANDB_DISABLED'] = "True"
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 logger = logging.getLogger(__name__)
 CURRENT_DIR = os.path.dirname(__file__)
 
@@ -282,7 +282,8 @@ def main():
         task_config_dir=data_args.task_config_dir,
         instruction_file=data_args.instruction_file,
         instruction_strategy=data_args.instruction_strategy,
-        cache_dir=model_args.cache_dir,
+        # cache_dir=model_args.cache_dir,  # for debug, change dataset size, otherwise open it
+        # verification_mode=datasets.VerificationMode.NONE,
         max_num_instances_per_task=data_args.max_num_instances_per_task,
         max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task,
         num_examples=data_args.num_examples
@@ -389,12 +390,12 @@ def main():
         input_record_file=data_args.input_record_file
     )
     # we don't want to remove unused columns because we will prepare each batch during training,
-    # and some of the information will aslo be used in evaluation.
+    # and some of the information will also be used in evaluation.
     training_args.remove_unused_columns = False
 
     # Metric
     def compute_rouge_metrics(dataset, preds, save_prefix=None):
-        decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
+        decoded_preds = skip_instructions(model, preds, tokenizer)
         references = [e["Instance"]["label"] for e in dataset]
         result = compute_metrics(predictions=decoded_preds, references=references)
         result_per_task = compute_grouped_metrics(predictions=decoded_preds, references=references, groups=dataset["Task"])
@@ -456,7 +457,7 @@ def main():
     # Evaluation
     results = {}
     # in case the batch is shorter than max length, the output should be padded
-    max_length = (
+    max_new_tokens = (
         training_args.generation_max_length
         if training_args.generation_max_length is not None
         else data_args.max_target_length
@@ -474,7 +475,19 @@ def main():
             checkpoint = get_last_checkpoint(training_args.output_dir)
         if training_args.resume_from_checkpoint is not None:
             checkpoint = training_args.resume_from_checkpoint
-        trainer.model.from_pretrained(checkpoint)
+        # without last ckpt and resume ckpt, would predict with current model
+        if checkpoint:
+            model = model_class.from_pretrained(checkpoint)
+            trainer = UIETrainer(
+                model=model,
+                args=training_args,
+                train_dataset=train_dataset if training_args.do_train else None,
+                eval_dataset=eval_dataset if training_args.do_eval else None,
+                tokenizer=tokenizer,
+                data_collator=data_collator,
+                compute_metrics=compute_rouge_metrics,
+                callbacks=[DenserEvalCallback] if training_args.denser_evaluation else None
+            )
 
         if data_args.max_predict_samples is not None:
             predict_dataset = predict_dataset.select(range(data_args.max_predict_samples))
@@ -482,9 +495,10 @@ def main():
         predict_results = trainer.predict(
             predict_dataset,
             metric_key_prefix="predict",
-            max_length=max_length,
+            max_new_tokens=max_new_tokens,
             num_beams=num_beams,
-            repetition_penalty=repetition_penalty
+            repetition_penalty=repetition_penalty,
+            pad_token_id=tokenizer.pad_token_id
         )
         metrics = predict_results.metrics
         max_predict_samples = (
@@ -497,32 +511,9 @@ def main():
         trainer.save_metrics("predict", metrics)
         all_metrics.update(metrics)
 
-        if trainer.is_world_process_zero():
-            # TODO, DEBUG
-            # i_shape, j_shape = predict_results.predictions.shape
-            # for i in range(i_shape):
-            #     for j in range(j_shape):
-            #         if predict_results.predictions[i, j] < 0:
-            #             predict_results.predictions[i, j] = tokenizer.pad_token_id
-
-            predictions = tokenizer.batch_decode(
-                predict_results.predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
-            )
-            predictions = [pred.strip() for pred in predictions]
-            # output_prediction_file = os.path.join(training_args.output_dir, "generated_predictions.txt")
-            # with open(output_prediction_file, "w") as writer:
-            #     writer.write("\n".join(predictions))
-            output_prediction_file = os.path.join(training_args.output_dir, f"predicted_examples.jsonl")
-            with open(output_prediction_file, "w+") as fout:
-                for example, prediction in zip(predict_dataset, predictions):
-                    example["prediction"] = prediction
-                    fout.write(json.dumps(example) + "\n")
-
     if training_args.do_demo:
         logger.info("Serving the model as a demo...")
         user_input = ''
-        trainer._max_length = max_length
-        trainer._num_beams = num_beams
         while True:
             user_input = input("Please enter your input to the model, or enter 'quit' to exit: ")
             if user_input.lower() == "quit":

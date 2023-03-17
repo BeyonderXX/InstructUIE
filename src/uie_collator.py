@@ -119,7 +119,7 @@ class DataCollatorForUIE:
                 decoder_input_ids = self.model.prepare_decoder_input_ids_from_labels(labels=model_inputs["labels"])
                 model_inputs["decoder_input_ids"] = decoder_input_ids
 
-            self._save_samples(model_inputs, sources)
+            self._save_samples(model_inputs, sources, labels)
 
         return model_inputs
 
@@ -178,12 +178,10 @@ class DataCollatorForUIE:
         if self.text_only:
             model_inputs = {"inputs": sources, 'labels': labels}
         else:
-            # TODO, test add_special_tokens
             model_inputs = self.tokenizer(
                 sources,
                 max_length=self.max_source_length,
                 padding=self.padding,
-                # add_special_tokens=True,
                 return_tensors=return_tensors,
                 truncation=True,
                 pad_to_multiple_of=self.pad_to_multiple_of
@@ -199,11 +197,11 @@ class DataCollatorForUIE:
                 loss_mask[k, : max_len - label_len - 2] = 0
             model_inputs['loss_mask'] = loss_mask.masked_fill(~label_mask, 0)
 
-            self._save_samples(model_inputs, sources)
+            self._save_samples(model_inputs, sources, labels)
 
         return model_inputs
 
-    def _save_samples(self, model_inputs, sources):
+    def _save_samples(self, model_inputs, sources, labels):
         if not self.input_record_file:
             return
 
@@ -213,10 +211,12 @@ class DataCollatorForUIE:
                 loss_label.append(self.tokenizer.decode((loss * id).view(-1).int()))
 
             with open(self.input_record_file, 'a+', encoding='utf-8') as f:
-                for text, mask_label in zip(sources, loss_label):
+                for text, label, mask_label in zip(sources, labels, loss_label):
                     f.write(text+'\n')
+                    f.write(label + '\n')
                     f.write(mask_label+'\n\n')
         else:
             with open(self.input_record_file, 'a+', encoding='utf-8') as f:
-                for text in sources:
+                for text, label in zip(sources, labels):
                     f.write(text + '\n')
+                    f.write(label + '\n')

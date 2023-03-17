@@ -26,6 +26,7 @@ logger = datasets.logging.get_logger(__name__)
 TASK_CONFIG_FILES = {"train": "train_tasks.json", "dev": "dev_tasks.json", "test": "test_tasks.json"}
 INSTRUCTION_STRATEGIES = ['single', 'multiple']
 SINGLE_QUOTES_SUBSTITUTE = "#$%#"
+ANSWER_PREFIX = "Answer: "
 
 
 def check_path(path):
@@ -312,7 +313,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         sample_template = {"Task": "EE", "Dataset": dataset_name, "Samples": [], "subset": subset}
 
         # TODO, reconstruct Event Instruction to two stage
-        labels_str = f'Event type: {labels[0]}, Arguments type: {labels[1]}'
+        # TODO, check
+        labels_str = f'Event type: {labels[0]}, Arguments type: {labels[1]}.'
         instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
 
         for idx, instance in enumerate(instances):
@@ -380,7 +382,3 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                     idx += 1
                     instances.append(sample)
                     yield f"{task}##{ds_path}##{idx}", sample
-
-                # # save for data check
-                # if subset == 'train':
-                #     save_ds(instances, ds_name)

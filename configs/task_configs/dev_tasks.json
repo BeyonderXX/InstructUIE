@@ -1,13 +1,6 @@
 {
-    "RE": [
-        {"sampling strategy": "random", "dataset name": "conll04"}
-      ],
       "NER": [
-        {"sampling strategy": "random", "dataset name": "ACE05_coarse-grained"},
         {"sampling strategy": "random", "dataset name": "conll2003"}
-      ],
-      "EE": [
-        {"sampling strategy": "random", "dataset name": "GENIA"}
       ]
 }
 

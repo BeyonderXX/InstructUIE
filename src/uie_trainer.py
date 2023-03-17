@@ -1,12 +1,30 @@
-import string
-import re
+import torch
 from transformers import GenerationConfig
 from transformers.trainer_seq2seq import Seq2SeqTrainer
 from transformers.trainer import *
-from datasets import load_metric
 from transformers.trainer_callback import TrainerCallback
 
 from uie_collator import SUPPORTED_DECODER_MODELS, check_model
+from uie_dataset import ANSWER_PREFIX
+
+
+def skip_instructions(model, predictions_ids, tokenizer, ignore_idx=-100):
+    predictions_ids = np.where(predictions_ids == ignore_idx, tokenizer.pad_token_id, predictions_ids)
+
+    predictions = tokenizer.batch_decode(
+        predictions_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True
+    )
+
+    final_predictions = []
+    if check_model(model.config._name_or_path, SUPPORTED_DECODER_MODELS):
+        for pred in predictions:
+            assert ANSWER_PREFIX in pred
+            splits = pred.split(ANSWER_PREFIX)
+            final_predictions.append(splits[-1].strip())
+    else:
+        final_predictions = predictions
+
+    return final_predictions
 
 
 class DenserEvalCallback(TrainerCallback):
@@ -55,7 +73,7 @@ class UIETrainer(Seq2SeqTrainer):
             # XXX: eval doesn't have `resume_from_checkpoint` arg but we should be able to do eval
             # from the checkpoint eventually
             deepspeed_engine, _, _ = deepspeed_init(
-                self, num_training_steps=0, resume_from_checkpoint=None #, inference=True
+                self, num_training_steps=0, resume_from_checkpoint=None, # inference=True
             )
             self.model = deepspeed_engine.module
             self.model_wrapped = deepspeed_engine
@@ -263,9 +281,9 @@ class UIETrainer(Seq2SeqTrainer):
         bs, source_len = inputs['input_ids'].shape
         # in case the batch is shorter than max length, the output should be padded
         if check_model(self.model.config._name_or_path, SUPPORTED_DECODER_MODELS):
-            max_length = source_len + gen_kwargs["max_length"]
+            max_length = source_len + gen_kwargs["max_new_tokens"]
         else:
-            max_length = gen_kwargs["max_length"]
+            max_length = gen_kwargs["max_new_tokens"]
 
         if generated_tokens.shape[-1] < max_length:
             generated_tokens = self._pad_tensors_to_max_len(generated_tokens, max_length)
@@ -286,8 +304,8 @@ class UIETrainer(Seq2SeqTrainer):
 
         if has_labels:
             labels = inputs["labels"]
-            if labels.shape[-1] < gen_kwargs["max_length"]:
-                labels = self._pad_tensors_to_max_len(labels, gen_kwargs["max_length"])
+            if labels.shape[-1] < gen_kwargs["max_new_tokens"]:
+                labels = self._pad_tensors_to_max_len(labels, gen_kwargs["max_new_tokens"])
         else:
             labels = None
 

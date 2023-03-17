@@ -1,0 +1,196 @@
+{
+    "EE": [
+        {
+            "sampling strategy": "full",
+            "dataset name": "GENIA"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "PHEE"
+        }
+    ],
+    "RE": [
+        {
+            "sampling strategy": "full",
+            "dataset name": "tacred"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "TypeRE"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "ADE_corpus"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "NYT11"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "AggregatedNewsRE"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "NYT10m"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "New-York-Times-RE"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "TBGA"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "CustFRE"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "semval-RE"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "conll04"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "GIDS"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "SciERC"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "re3d"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "kbp37"
+        }
+    ],
+    "NER": [
+        {
+            "sampling strategy": "full",
+            "dataset name": "mit-restaurant"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "jnlpba"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "ACE05_coarse-grained"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "GENIA_NER"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "NERPER"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "HarveyNER"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "FabNER"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "WIESP2022"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "MultiNERD"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "ACE05_fine-grained"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "naacl2022"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "broad_tweet"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "mit-movie"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "ncbi"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "ubb-endava-conll-assistant-ner-only-misc"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "bc5cdr"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "tweetNER7"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "wikiann_en"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "AnatEM"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "fin"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "wikineural"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "bc4chemd"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "TrainTestData"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "polyglot"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "EpiExtract4GARD"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "tweetbank"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "FindVehicle"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "conll2003"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "bc2gm"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "ontonotes"
+        }
+    ]
+}
