@@ -43,6 +43,6 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port $port src/run_uie.p
    --logging_strategy steps \
    --logging_steps 100 \
    --evaluation_strategy steps \
-   --evaluation_steps 2000 \
+   --eval_steps 2000 \
    --save_strategy steps \
    --save_steps 2000
