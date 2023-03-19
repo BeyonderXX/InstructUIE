@@ -152,6 +152,11 @@ class AuditLong(AuditBase):
     def _check(self, last) -> bool:
         return len(last['predict']) >= 512     # 长度上限根据需要自行修改
 
+class AuditInsane(AuditBase):
+    "检测胡言乱语"
+    def _check(self, last) -> bool:
+        return last['predict'].strip().lower() not in {'na', 'no relation', 'none', '[]', ''} and len(last['y_pred']) == 0    # 说了点什么，但又什么有用的都没说
+
 class AuditNA(AuditBase):
     "检测包含类型为NA的输出，目前只用于RE"
     def _check(self, last) -> bool:
@@ -207,8 +212,9 @@ class EvaluatorBase:
         self.audit = [
             AuditVoid(),
             AuditLong(),
+            AuditInsane(),
             AuditRepeat(),
-            AuditRetard()
+            AuditRetard(),
         ]
     
     def _update_audit(self):
@@ -265,6 +271,14 @@ class EvaluatorBase:
     def _remove_redundant_space(s):
         # '   a  b  \t  c  \n' --> 'a b c'
         return ' '.join(s.split())
+    
+    @staticmethod
+    def _re_item(s):
+        # '   A,B,C),   (D,EF),  ,,(GH ' --> ['A,B,C', 'D,EF', 'GH']
+        # ' A,B,C)  ' --> ['A,B,C']
+        # 因为有时模型的输出会缺少开头的左括号或者结尾的右括号
+        # 该正则表达式不捕获括号，只捕获中间的内容
+        return re.findall(r'(?:^|\()([^\(\)]+?)(?:$|\))', s)
 
 class EvaluatorNER(EvaluatorBase):
     def _init_metric(self):
@@ -273,19 +287,16 @@ class EvaluatorNER(EvaluatorBase):
         predict = predict.split('Answer:')[-1]
 
         entity_truth = set()
-        tmp = json.loads(json_data['Instance']['entities'].replace("'",'"'))
-
-        for ent in tmp:
-            ent = ent['type']+':'+ent['name']
+        for ent in re.findall(r'\(.+?\)', json_data['Instance']['label']):   # FIXME:字段名可能有变
             ent = self._remove_redundant_space(ent)
             entity_truth.add(ent.lower())
         
         entity_pred = set()
-        for ent in predict.split(','):
-            ent = ent.split(':')
+        for ent in self._re_item(predict):
+            ent = ent.split(',')
             if len(ent) == 2:
                 # 预测中不符合格式的实体会被抛弃
-                ent = ent[0].strip()+':'+ent[1].strip()
+                ent = '(%s, %s)'%(ent[0].strip(), ent[1].strip())
                 ent = self._remove_redundant_space(ent)
                 entity_pred.add(ent.lower())
         return entity_truth, entity_pred
@@ -306,27 +317,20 @@ class EvaluatorRE(EvaluatorBase):
         predict = predict.split('Answer:')[-1]
 
         y_truth = set()
-        for rel in json.loads(json_data['Instance']['entities']):
-            head = rel['head']['name']
-            rel_type = rel['type']
-            tail = rel['tail']['name']
+        for rel in re.findall(r'\(.+?\)', json_data['Instance']['label']):   # FIXME:字段名可能有变
             # type为'no_relation'或'NA'的关系现在不忽略，下同
-            rel = '(%s,%s,%s)'%(head, rel_type, tail)
             rel = self._remove_redundant_space(rel)
             y_truth.add(rel.lower())
 
         y_pred = set()
-        if predict.strip() not in {'no relation', '[]'}:
-            # 如果模型输出'no relation'或'[]'，则认为其预测的关系集合为空集
-            for rel in re.findall(r'\(.+?\)', predict):
-                rel = rel[1:-1]
-                elements = tuple([i.strip() for i in rel.split(',')])
-                if len(elements) == 3:
-                    # 预测中不符合格式的关系会被舍弃
-                    rel_type = elements[1]
-                    rel = '(%s,%s,%s)'%elements
-                    rel = self._remove_redundant_space(rel)
-                    y_pred.add(rel.lower())
+        # 如果模型输出'no relation'或'[]'，则认为其预测的关系集合为空集，但这里并不需要做特殊判别
+        for rel in self._re_item(predict):
+            elements = tuple([i.strip() for i in rel.split(',')])
+            if len(elements) == 3:
+                # 预测中不符合格式的关系会被舍弃
+                rel = '(%s, %s, %s)'%elements
+                rel = self._remove_redundant_space(rel)
+                y_pred.add(rel.lower())
         return y_truth, y_pred
 
 class EvaluatorMRC(EvaluatorBase):
@@ -367,27 +371,15 @@ class EvaluatorEvent(EvaluatorBase):
         predict = predict.split('Answer:')[-1]
 
         y_truth = set()
-        for event in json_data['events']:
-            event_elements = []
-
-            event_type = event['type']
-            event_elements.append('event type:%s'%event_type.strip())
+        for event in re.findall(r'\(.+?\)', json_data['Instance']['label']):   # FIXME:字段名可能有变
+            event_elements = [self._remove_redundant_space(i).lower() for i in event[1:-1].split(',')]  # 因为后面会排序，所以每个pair的规整化需要提前进行
             
-            trigger = event['trigger']
-            event_elements.append('trigger:%s'%trigger.strip())
-
-            for arg in event['arguments']:
-                name = arg['name']
-                role = arg['role']
-                event_elements.append('%s:%s'%(role.strip(), name.strip()))
-            
-            event_string = ','.join(sorted(event_elements)) # 'a:b,c:d'
-            event_string = self._remove_redundant_space(event_string)
-            y_truth.add(event_string.lower())
+            event_string = ', '.join(sorted(event_elements)) # 'a:b,c:d'
+            event_string = '(%s)'%event_string
+            y_truth.add(event_string)
         
         y_pred = set()
-        for event in re.findall(r'\(.+?\)', predict):
-            event = event[1:-1]
+        for event in self._re_item(predict):
             valid_event = True
             pair_strings = []
             for pair in event.split(','):
@@ -395,13 +387,16 @@ class EvaluatorEvent(EvaluatorBase):
                 if len(pair) != 2:
                     valid_event = False
                     break
-                pair_strings.append('%s:%s'%(pair[0].strip(), pair[1].strip()))
+                pair = '%s: %s'%(pair[0].strip(), pair[1].strip())
+                pair = self._remove_redundant_space(pair.lower())   # 同上，需要在排序之前提前规整化
+                pair_strings.append(pair)
             if valid_event:
-                event_string = ','.join(sorted(pair_strings))
-                event_string = self._remove_redundant_space(event_string)
-                y_pred.add(event_string.lower())
+                event_string = ', '.join(sorted(pair_strings))
+                event_string = '(%s)'%event_string
+                y_pred.add(event_string)
         return y_truth, y_pred
 
+# 因为后来的实际格式与最初表格中的不同，因此下列测试可能无法通过，仅作为使用示例
 if __name__ == '__main__':
     eval_ner = EvaluatorNER()
     eval_re = EvaluatorRE()
@@ -414,7 +409,6 @@ if __name__ == '__main__':
         print(evaluator.get_metric())
         print(evaluator.get_record)
     
-    # 因为后来的实际格式与最初表格中的不同，因此下列测试可能无法通过，仅作为示例s
     test(
         eval_ner,
         """
