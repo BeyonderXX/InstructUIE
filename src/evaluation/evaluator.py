@@ -168,7 +168,7 @@ class AuditNA(AuditBase):
 class AuditInvalid(AuditBase):
     "检测包含非法标签类型的输出，目前只用于RE"
     def _check(self, last) -> bool:
-        valid_labels = re.findall('Option:(.+?)\n', last['json_data']['instruction'])
+        valid_labels = re.findall('Option:(.+?)\n', last['json_data']['Instance']['instruction'])
         if len(valid_labels) == 0:
             # 如果是没有提供option，则忽略该审计项
             return False
