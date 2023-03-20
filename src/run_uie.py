@@ -45,7 +45,6 @@ from transformers.trainer_utils import get_last_checkpoint
 from model.bloom import BloomForCausalLM_WithLoss
 from model.codegen import CodeGenForCausalLM_WithLoss
 from uie_collator import DataCollatorForUIE
-from uie_collator import SUPPORTED_DECODER_MODELS, check_model
 
 from uie_trainer import UIETrainer, DenserEvalCallback, skip_instructions
 from compute_metrics import compute_metrics, compute_grouped_metrics

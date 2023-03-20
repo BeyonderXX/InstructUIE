@@ -124,7 +124,6 @@ class DataCollatorForUIE:
         return model_inputs
 
     def decoder_call(self, batch, return_tensors):
-        # decoder模型处理
         self.tokenizer.padding_side = 'left'
         sources = []
         label_lens = []
@@ -194,7 +193,7 @@ class DataCollatorForUIE:
             max_len = min(max_len, limit_input_len)
             loss_mask = torch.ones((label_mask.shape))
             for k, label_len in enumerate(label_lens):
-                loss_mask[k, : max_len - label_len - 2] = 0
+                loss_mask[k, : max_len - label_len - 1] = 0
             model_inputs['loss_mask'] = loss_mask.masked_fill(~label_mask, 0)
 
             self._save_samples(model_inputs, sources, labels)

@@ -25,8 +25,7 @@ import datasets
 logger = datasets.logging.get_logger(__name__)
 TASK_CONFIG_FILES = {"train": "train_tasks.json", "dev": "dev_tasks.json", "test": "test_tasks.json"}
 INSTRUCTION_STRATEGIES = ['single', 'multiple']
-SINGLE_QUOTES_SUBSTITUTE = "#$%#"
-ANSWER_PREFIX = "Answer: "
+ANSWER_PREFIX = "Answer:"
 
 
 def check_path(path):
@@ -252,7 +251,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('NER')
-            instruction += "Option:" + labels_str + " \n " + "Text: " + "{0}" + "\n" + "Answer: "
+            instruction += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
             kv_pairs = []
 
             for entity in instance['entities']:
@@ -285,7 +284,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('RE')
-            instruction += "Option:" + labels_str + " \n " + "Text: " + "{0}" + "\n" + "Answer: "
+            instruction += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
             relation_pairs = []
 
             for relation in instance['relations']:
@@ -320,7 +319,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('RE')
-            instruction += "Option:" + labels_str + " \n " + "Text: " + "{0}" + "\n" + "Answer: "
+            instruction += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
             event_pairs = []
 
             for k, event in enumerate(instance['events']):
