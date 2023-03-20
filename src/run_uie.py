@@ -45,6 +45,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from model.bloom import BloomForCausalLM_WithLoss
 from model.codegen import CodeGenForCausalLM_WithLoss
 from uie_collator import DataCollatorForUIE
+from uie_dataset import gen_cache_path
 
 from uie_trainer import UIETrainer, DenserEvalCallback, skip_instructions
 from compute_metrics import compute_metrics, compute_grouped_metrics
@@ -124,7 +125,7 @@ class DataTrainingArguments:
     instruction_file: str = field(
         default=None, metadata={"help": "The instruction file for different tasks."}
     )
-    instruction_strategy: str = field(
+    instruction_strategy: Optional[str] = field(
         default='single', metadata={
             "help": "How many different instructions to use? Support 'single' and 'multiple' mode."
         }
@@ -273,6 +274,7 @@ def main():
 
     # Set seed before initializing model.
     set_seed(training_args.seed)
+    data_cache_dir = gen_cache_path(training_args.output_dir, data_args)
 
     # Get the UIE dataset
     raw_datasets = load_dataset(
@@ -281,12 +283,15 @@ def main():
         task_config_dir=data_args.task_config_dir,
         instruction_file=data_args.instruction_file,
         instruction_strategy=data_args.instruction_strategy,
-        # cache_dir=model_args.cache_dir,  # for debug, change dataset size, otherwise open it
+        # keep_in_memory=True,
+        cache_dir=data_cache_dir,  # for debug, change dataset size, otherwise open it
         # verification_mode=datasets.VerificationMode.NONE,
+        # ignore_verifications=True,
         max_num_instances_per_task=data_args.max_num_instances_per_task,
         max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task,
         num_examples=data_args.num_examples
     )
+    raw_datasets.cleanup_cache_files()
 
     # Load pretrained model and tokenizer
     #

@@ -21,11 +21,25 @@ import json
 import os
 import random
 import datasets
+from hashlib import md5
+
 
 logger = datasets.logging.get_logger(__name__)
 TASK_CONFIG_FILES = {"train": "train_tasks.json", "dev": "dev_tasks.json", "test": "test_tasks.json"}
 INSTRUCTION_STRATEGIES = ['single', 'multiple']
 ANSWER_PREFIX = "Answer:"
+SINGLE_QUOTES_SUBSTITUTE = "#$%#"
+
+
+def gen_cache_path(cache_dir, data_args):
+    hash_str = data_args.data_dir + data_args.task_config_dir + \
+               data_args.instruction_file + data_args.instruction_strategy + \
+               str(data_args.max_num_instances_per_task) + str(data_args.max_num_instances_per_eval_task)
+    hash_obj = md5(hash_str.encode("utf-8"))
+    hash_id = hash_obj.hexdigest()
+    cache_path = os.path.join(cache_dir, str(hash_id))
+
+    return cache_path
 
 
 def check_path(path):
