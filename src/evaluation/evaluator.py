@@ -278,7 +278,7 @@ class EvaluatorBase:
         # ' A,B,C)  ' --> ['A,B,C']
         # 因为有时模型的输出会缺少开头的左括号或者结尾的右括号
         # 该正则表达式不捕获括号，只捕获中间的内容
-        return re.findall(r'(?:^|\()([^\(\)]+?)(?:$|\))', s)
+        return re.findall(r'(?:^|\()([^\(\)]+?)(?:$|\))', s.strip())
 
 class EvaluatorNER(EvaluatorBase):
     def _init_metric(self):
