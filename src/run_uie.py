@@ -283,10 +283,7 @@ def main():
         task_config_dir=data_args.task_config_dir,
         instruction_file=data_args.instruction_file,
         instruction_strategy=data_args.instruction_strategy,
-        # keep_in_memory=True,
         cache_dir=data_cache_dir,  # for debug, change dataset size, otherwise open it
-        # verification_mode=datasets.VerificationMode.NONE,
-        # ignore_verifications=True,
         max_num_instances_per_task=data_args.max_num_instances_per_task,
         max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task,
         num_examples=data_args.num_examples

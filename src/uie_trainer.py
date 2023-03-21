@@ -18,9 +18,12 @@ def skip_instructions(model, predictions_ids, tokenizer, ignore_idx=-100):
     final_predictions = []
     if check_model(model.config._name_or_path, SUPPORTED_DECODER_MODELS):
         for pred in predictions:
-            assert ANSWER_PREFIX in pred
-            splits = pred.split(ANSWER_PREFIX)
-            final_predictions.append(splits[-1].strip())
+
+            if ANSWER_PREFIX in pred:
+                splits = pred.split(ANSWER_PREFIX)
+                final_predictions.append(splits[-1].strip())
+            else:
+                final_predictions.append('')
     else:
         final_predictions = predictions
 
