@@ -387,7 +387,7 @@ class EvaluatorEvent(EvaluatorBase):
                 if len(pair) != 2:
                     valid_event = False
                     break
-                pair = '%s: %s'%(pair[0].strip(), pair[1].strip())
+                pair = '%s:%s'%(pair[0].strip(), pair[1].strip())   # 实际上ground truth label里冒号后没有空格
                 pair = self._remove_redundant_space(pair.lower())   # 同上，需要在排序之前提前规整化
                 pair_strings.append(pair)
             if valid_event:
