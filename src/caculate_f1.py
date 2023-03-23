@@ -3,7 +3,8 @@ import os
 
 from evaluation.evaluator import *
 
-output_dir = '../output/bloomz-7b1/'
+# output_dir = '../output/bloomz-7b1'
+output_dir = '../output/flan-t5-11b'
 
 task_path = os.path.join(output_dir, 'predict_eval_predictions.jsonl')
 report_dir = os.path.join(output_dir, 'report')
@@ -29,20 +30,13 @@ with open(task_path, 'r', encoding='utf-8') as f:
 if not os.path.exists(report_dir):
     os.mkdir(report_dir)
 
-for task_name, eval_dict in task_dict.items():
-    print('[[[[%s]]]]'%task_name)
-    scores = []
-    for dataset_name, evaluator in eval_dict.items():
-        scores.append(evaluator.get_metric())
-        print(dataset_name, evaluator.get_metric(), sep='\t')
-        evaluator.dump_audit_report(os.path.join(report_dir, dataset_name+'.json'))
-    print('Average:', sum(scores)/len(scores))
-
 # export tsv
 for task_name, eval_dict in task_dict.items():
+    print('\n'+'-'*16+task_name+'-'*16+'\n')
     rows = []
     scores = []
     for dataset_name, evaluator in eval_dict.items():
+        evaluator.dump_audit_report(os.path.join(report_dir, dataset_name+'.json'))
         rows.append((dataset_name, evaluator.get_metric()))
         scores.append(evaluator.get_metric())
     rows = sorted(rows, key=lambda x: x[0])
@@ -50,3 +44,4 @@ for task_name, eval_dict in task_dict.items():
     with open(os.path.join(report_dir, 'report_%s.tsv'%task_name), 'w', encoding='utf-8') as f:
         for row in rows:
             f.write(f'{row[0]}\t{row[1]}\n')
+            print('%48s\t%g'%row)

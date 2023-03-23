@@ -133,3 +133,5 @@ hostfile
 wandb/
 output/
 exp.py
+
+.DS_Store
