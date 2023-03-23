@@ -73,6 +73,9 @@ class MetricF1(MetricBase):
 class MetricF1NA(MetricF1):
     "对于RE中关系类型为NA的特殊处理"
     def update(self, y_truth: set, y_pred: set):
+        self.last_TP = 0
+        self.last_FN = 0
+        self.last_FP = 0
         for truth in y_truth:
             if ',na,' in truth:
                 pattern = re.escape(truth).replace(',na,', ',(.+),')    # 因为在evaluator._extract的时候就全部变为了小写，所以是na而非NA
@@ -84,12 +87,12 @@ class MetricF1NA(MetricF1):
                         pred_fail = True
                         break
                 if not pred_fail:       # 只有当预测中没有给出错误的明确肯定时才加TP
-                    self.sum_TP += 1    # 至于FP会在后面统计，这里就不用计算了，否则会造成重复统计
+                    self.last_TP += 1    # 至于FP会在后面统计，这里就不用计算了，否则会造成重复统计
             else:
                 if truth in y_pred:
-                    self.sum_TP += 1
+                    self.last_TP += 1
                 else:
-                    self.sum_FN += 1
+                    self.last_FN += 1
         for pred in y_pred:
             if ',na,' in pred:
                 pattern = re.escape(pred).replace(',na,', ',(.+),')
@@ -101,12 +104,15 @@ class MetricF1NA(MetricF1):
                         pred_fail = True
                         break
                 if pred_fail:
-                    self.sum_FP += 1
+                    self.last_FP += 1
                 else:
-                    self.sum_TP += 0    # 这里不太确定，对于pred给出的(A,NA,B)，如果truth中不包含(A,*,B)，是否应该算作TP? 我姑且认为是不算的，预测中给出(A,NA,B)的话，对了不加分，错了要扣分。
+                    self.last_TP += 0    # 这里不太确定，对于pred给出的(A,NA,B)，如果truth中不包含(A,*,B)，是否应该算作TP? 我姑且认为是不算的，预测中给出(A,NA,B)的话，对了不加分，错了要扣分。
             else:
                 if pred not in y_truth:
-                    self.sum_FP += 1
+                    self.last_FP += 1
+        self.sum_TP += self.last_TP
+        self.sum_FN += self.last_FN
+        self.sum_FP += self.last_FP
 
 class AuditBase:
     def __init__(self, record_limit=16):
