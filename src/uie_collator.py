@@ -30,6 +30,7 @@ class DataCollatorForUIE:
     return_tensors: str = "pt"
     add_task_name: bool = False
     add_dataset_name: bool = False
+    common_dataset_name: str = None
     text_only: bool = False
     num_examples: int = 0
     input_record_file: str = None
@@ -56,11 +57,13 @@ class DataCollatorForUIE:
         # add task/ds prefix
         prefix = ''
         if self.add_task_name:
-            prefix += instance['Task']
+            prefix += "Task:" + instance['Task'] + '\n'
         if self.add_dataset_name:
-            prefix = prefix + '-' + instance['Dataset'] if prefix else instance['Dataset']
+            ds_name = self.common_dataset_name if self.common_dataset_name else instance['Dataset']
+            prefix = prefix + "Dataset:"
+            prefix = prefix + ds_name + '\n' if prefix else instance['Dataset'] + '\n'
         if prefix:
-            instruction = prefix + '\n' + instruction
+            instruction = prefix + instruction
 
         # TODO, support few shot
         # add few shot samples

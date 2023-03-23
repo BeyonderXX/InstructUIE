@@ -16,13 +16,14 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 deepspeed --master_port $port src/run_uie.py \
    --data_dir /workspace/IE_data_v2 \
    --task_config_dir /workspace/InstructUIE/configs/multi_task_configs \
    --instruction_file /workspace/InstructUIE/configs/instruction_config.json \
+   --instruction_strategy single \
    --output_dir output/codegen-350M-ie-test \
+   --input_record_file codegen.record \
    --per_device_train_batch_size 6 \
    --per_device_eval_batch_size 16 \
    --gradient_accumulation_steps 6 \
    --learning_rate 5e-05 \
    --num_train_epochs 5 \
-   --input_record_file codegen.record \
    --deepspeed configs/ds_configs/stage0.config \
    --run_name codegen-350M-ie-single-experiment \
    --max_source_length 512 \
@@ -38,7 +39,6 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 deepspeed --master_port $port src/run_uie.py \
    --warmup_steps 0 \
    --logging_strategy steps \
    --logging_steps 100 \
-   --evaluation_strategy steps \
-   --eval_steps 2000 \
+   --evaluation_strategy no \
    --save_strategy steps \
    --save_steps 2000

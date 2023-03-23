@@ -29,7 +29,6 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port $port src/run_uie.p
    --max_num_instances_per_eval_task 200 \
    --add_task_name False \
    --num_examples 0 \
-   --instruction_strategy multiple \
    --overwrite_output_dir \
    --overwrite_cache \
    --logging_strategy steps \
