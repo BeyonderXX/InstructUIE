@@ -7,7 +7,8 @@ export TRANSFORMERS_CACHE=/root/.cache/huggingface
 port=$(shuf -i25000-30000 -n1)
 
 
-# 3090 * 8 on t5-700M
+# A100 * 8 on gpt-neox-20b
+# 注意更改 model_name_or_path，data_dir等值
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port $port ../src/run_uie.py \
    --do_train \
    --do_predict \
