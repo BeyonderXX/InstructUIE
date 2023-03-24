@@ -216,6 +216,10 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "whether to preappend dataset name before the task input."}
     )
+    common_dataset_name: Optional[str] = field(
+        default=None,
+        metadata={"help": "common dataset name for zero shot."}
+    )
 
 
 @dataclass
@@ -396,6 +400,8 @@ def main():
         label_pad_token_id=label_pad_token_id,
         pad_to_multiple_of=8 if training_args.fp16 else None,
         add_task_name=data_args.add_task_name,
+        add_dataset_name=data_args.add_dataset_name,
+        common_dataset_name=data_args.common_dataset_name,
         num_examples=data_args.num_examples,
         input_record_file=data_args.input_record_file
     )
