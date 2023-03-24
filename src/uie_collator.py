@@ -6,7 +6,7 @@ from transformers.data.data_collator import *
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_DECODER_MODELS = ['codegen', 'bloomz']
+SUPPORTED_DECODER_MODELS = ['codegen', 'bloomz', 'gpt-neox']
 SUPPORTED_SEQ2SEQ_MODELS = ['t5', 'flan-t5']
 
 
@@ -30,7 +30,6 @@ class DataCollatorForUIE:
     return_tensors: str = "pt"
     add_task_name: bool = False
     add_dataset_name: bool = False
-    common_dataset_name: str = None
     text_only: bool = False
     num_examples: int = 0
     input_record_file: str = None
@@ -40,6 +39,7 @@ class DataCollatorForUIE:
             return_tensors = self.return_tensors
 
         model_name = self.model.config._name_or_path
+        # print(model_name)
         if check_model(model_name, SUPPORTED_DECODER_MODELS):
             model_inputs = self.decoder_call(batch, return_tensors)
         elif check_model(model_name, SUPPORTED_SEQ2SEQ_MODELS):
@@ -57,13 +57,11 @@ class DataCollatorForUIE:
         # add task/ds prefix
         prefix = ''
         if self.add_task_name:
-            prefix += "Task:" + instance['Task'] + '\n'
+            prefix += instance['Task']
         if self.add_dataset_name:
-            ds_name = self.common_dataset_name if self.common_dataset_name else instance['Dataset']
-            prefix = prefix + "Dataset:"
-            prefix = prefix + ds_name + '\n' if prefix else instance['Dataset'] + '\n'
+            prefix = prefix + '-' + instance['Dataset'] if prefix else instance['Dataset']
         if prefix:
-            instruction = prefix + instruction
+            instruction = prefix + '\n' + instruction
 
         # TODO, support few shot
         # add few shot samples

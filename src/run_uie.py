@@ -35,6 +35,7 @@ from filelock import FileLock
 from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,
+    AutoModelForCausalLM,                       #add
     AutoTokenizer,
     HfArgumentParser,
     Seq2SeqTrainingArguments,
@@ -44,6 +45,8 @@ from transformers.trainer_utils import get_last_checkpoint
 
 from model.bloom import BloomForCausalLM_WithLoss
 from model.codegen import CodeGenForCausalLM_WithLoss
+from model.gpt_neox import GPTNeoXForCausalLM_WithLoss
+
 from uie_collator import DataCollatorForUIE
 from uie_dataset import gen_cache_path
 
@@ -213,10 +216,6 @@ class DataTrainingArguments:
         default=False,
         metadata={"help": "whether to preappend dataset name before the task input."}
     )
-    common_dataset_name: Optional[str] = field(
-        default=None,
-        metadata={"help": "common dataset name for zero shot."}
-    )
 
 
 @dataclass
@@ -322,6 +321,12 @@ def main():
         model_class = CodeGenForCausalLM_WithLoss
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = 'left'
+
+    elif 'neox' in model_args.model_name_or_path.lower():         #add neox
+        model_class = GPTNeoXForCausalLM_WithLoss
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.padding_side = 'left'
     else:
         model_class = AutoModelForSeq2SeqLM
     model = model_class.from_pretrained(
@@ -391,8 +396,6 @@ def main():
         label_pad_token_id=label_pad_token_id,
         pad_to_multiple_of=8 if training_args.fp16 else None,
         add_task_name=data_args.add_task_name,
-        add_dataset_name=data_args.add_dataset_name,
-        common_dataset_name=data_args.common_dataset_name,
         num_examples=data_args.num_examples,
         input_record_file=data_args.input_record_file
     )
