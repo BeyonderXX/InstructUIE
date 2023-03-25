@@ -163,6 +163,11 @@ class AuditInsane(AuditBase):
     def _check(self, last) -> bool:
         return last['predict'].strip().lower() not in {'na', 'no relation', 'none', '[]', ''} and len(last['y_pred']) == 0    # 说了点什么，但又什么有用的都没说
 
+class AuditBothEmpty(AuditBase):
+    "检测Label和predict都为空的条目"
+    def _check(self, last) -> bool:
+        return len(last['y_truth']) == 0 and len(last['y_pred']) == 0
+
 class AuditNA(AuditBase):
     "检测包含类型为NA的输出，目前只用于RE"
     def _check(self, last) -> bool:
@@ -224,6 +229,7 @@ class EvaluatorBase:
         # 如果需要添加其他审计项目或者自定义实例化的话请考虑重载此方法
         self.audit = [
             AuditVoid(),
+            AuditBothEmpty(),
             AuditLong(),
             AuditInsane(),
             AuditRepeat(),
