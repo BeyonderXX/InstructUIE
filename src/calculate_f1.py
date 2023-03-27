@@ -36,6 +36,8 @@ def calculate_f1(output_dir, tasks=('RE','EE','NER')):
             rows.append((dataset_name, evaluator.get_metric()))
             scores.append(evaluator.get_metric())
         rows = sorted(rows, key=lambda x: x[0].lower())
+        if len(scores) == 0:
+            continue
         rows.append(('Average', sum(scores)/len(scores)))
         with open(os.path.join(report_dir, 'report_%s.tsv'%task_name), 'w', encoding='utf-8') as f:
             for row in rows:

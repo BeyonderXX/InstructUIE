@@ -66,7 +66,13 @@ class MetricF1(MetricBase):
             f1 = 0
         else:
             f1 = 2 * recall * precision / (recall + precision)
+        self.recall = recall
+        self.precision = precision
         return f1
+    def get_detail(self):
+        if not hasattr(self, 'recall'):
+            f1 = self.get_metric()
+        return f1, self.recall, self.precision
     def get_last(self):
         return self.last_TP, self.last_FN, self.last_FP
 
@@ -278,7 +284,7 @@ class EvaluatorBase:
         return self.metric.get_metric()
 
     def get_audit_report(self):
-        '获取所有审计项结果报告'
+        '获取所有审计项结果报告，返回一个json-like object'
         return {
             a.get_name() : a.get_report()
             for a in self.audit
@@ -290,9 +296,9 @@ class EvaluatorBase:
     @staticmethod
     def _remove_redundant_space(s):
         # '   a  b  \t  c  \n' --> 'a b c'
-        #'  kjc,  jns , ((  : ()  )  (  )( ln  kc  a,,  ' --> 'kjc,jns,((:())()(ln kc a,,'
+        #'  kjc,  jns , ((  : ()  )  ( . )( ln  kc  a,,  ' --> 'kjc,jns,((:())(.)(ln kc a,,'
         s = ' '.join(s.split())
-        s = re.sub(r'\s*(,|:|\(|\))\s*', r'\1', s)
+        s = re.sub(r'\s*(,|:|\(|\)|\.)\s*', r'\1', s)
         return s
     
     @staticmethod
@@ -302,6 +308,7 @@ class EvaluatorBase:
         s = s.lower()
         s = s.replace('{','').replace('}','')
         s = re.sub(',+', ',', s)
+        s = re.sub('\.+', '.', s)
         s.replace('orgnization', 'organization')
         return s
     
@@ -311,13 +318,14 @@ class EvaluatorBase:
         # ' A,B,C)  ' --> ['A,B,C']
         # 因为有时模型的输出会缺少开头的左括号或者结尾的右括号
         # 该正则表达式不捕获括号，只捕获中间的内容
+        # Deprecated
         return re.findall(r'(?:^|\()([^\(\)]+?)(?:$|\))', s.strip())
     
     @staticmethod
     def _resolve_brackets(s):
         # 将最上层的配对括号内的内容抽取出来，以字符串列表的形式返回，抛弃括号外的内容。
         # 此函数容忍句子开头缺失的一个左括号和句子结尾缺失的一个右括号（但不会同时容忍）
-        # 'a(b)(c(d))(
+        # 'a(b)(c(d))(' --> ['b', 'c(d)']
         ans = []
         level = 0
         last_lb_idx = None
@@ -459,7 +467,7 @@ if __name__ == '__main__':
         json_data = json.loads(json_str)
         evaluator.add(json_data, predict)
         print(evaluator.get_metric())
-        print(evaluator.get_record)
+        print(evaluator.get_report())
     
     test(
         eval_ner,
