@@ -35,7 +35,7 @@ def calculate_f1(output_dir, tasks=('RE','EE','NER')):
             evaluator.dump_audit_report(os.path.join(report_dir, dataset_name+'.json'))
             rows.append((dataset_name, evaluator.get_metric()))
             scores.append(evaluator.get_metric())
-        rows = sorted(rows, key=lambda x: x[0])
+        rows = sorted(rows, key=lambda x: x[0].lower())
         rows.append(('Average', sum(scores)/len(scores)))
         with open(os.path.join(report_dir, 'report_%s.tsv'%task_name), 'w', encoding='utf-8') as f:
             for row in rows:
@@ -43,7 +43,5 @@ def calculate_f1(output_dir, tasks=('RE','EE','NER')):
                 print('%48s\t%g'%row)
 
 if __name__ == '__main__':
-    root = '../output/checkpoints_roll'
-    for dir in os.listdir(root):
-        path = os.path.join(root, dir)
-        calculate_f1(path)
+    root = '../output/llama-7b'
+    calculate_f1(root)
