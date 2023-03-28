@@ -283,6 +283,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 "id": str(idx),
                 "sentence": instance['sentence'],
                 "label": label,
+                "ground_truth": label,
                 "instruction": instruction
             }
 
@@ -300,9 +301,11 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
             instruction = self._get_instruction('RE')
             instruction += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
             relation_pairs = []
+            ground_truth_pairs = []
 
             for relation in instance['relations']:
                 if relation['type'] == 'NA' or relation['type'] == '':
+                    ground_truth_pairs.append([relation['head']['name'], 'NA', relation['tail']['name']])
                     continue
                 relation_pair = [relation['head']['name'], relation['type'], relation['tail']['name']]
                 relation_pairs.append(relation_pair)
@@ -312,10 +315,16 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
             else:
                 label = 'None'
 
+            if len(ground_truth_pairs) > 0:
+                ground_truth = ", ".join(["({}, {}, {})".format(h, r, t) for (h, r, t) in ground_truth_pairs])
+            else:
+                raise Exception('Dataset Error:{}, No ground truth!'.format(dataset_name))
+
             example["Instance"] = {
                 "id": str(idx),
                 "sentence": instance['sentence'],
                 "label": label,
+                "ground_truth": ground_truth,
                 "instruction": instruction
             }
 
@@ -332,7 +341,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
-            instruction = self._get_instruction('RE')
+            instruction = self._get_instruction('EE')
             instruction += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
             event_pairs = []
 
@@ -361,6 +370,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 "id": str(idx),
                 "sentence": instance['sentence'],
                 "label": label,
+                "ground_truth": label,
                 "instruction": instruction
             }
 
