@@ -6,7 +6,7 @@ from transformers.data.data_collator import *
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_DECODER_MODELS = ['codegen', 'bloomz']
+SUPPORTED_DECODER_MODELS = ['codegen', 'bloomz', 'gpt-neox']
 SUPPORTED_SEQ2SEQ_MODELS = ['t5', 'flan-t5']
 
 
@@ -40,6 +40,7 @@ class DataCollatorForUIE:
             return_tensors = self.return_tensors
 
         model_name = self.model.config._name_or_path
+        # print(model_name)
         if check_model(model_name, SUPPORTED_DECODER_MODELS):
             model_inputs = self.decoder_call(batch, return_tensors)
         elif check_model(model_name, SUPPORTED_SEQ2SEQ_MODELS):

@@ -35,6 +35,7 @@ from filelock import FileLock
 from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,
+    AutoModelForCausalLM,                       #add
     AutoTokenizer,
     HfArgumentParser,
     Seq2SeqTrainingArguments,
@@ -44,6 +45,8 @@ from transformers.trainer_utils import get_last_checkpoint
 
 from model.bloom import BloomForCausalLM_WithLoss
 from model.codegen import CodeGenForCausalLM_WithLoss
+from model.gpt_neox import GPTNeoXForCausalLM_WithLoss
+
 from uie_collator import DataCollatorForUIE
 from uie_dataset import gen_cache_path
 
@@ -321,6 +324,12 @@ def main():
     elif 'codegen' in model_args.model_name_or_path.lower():
         model_class = CodeGenForCausalLM_WithLoss
         tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.padding_side = 'left'
+
+    elif 'neox' in model_args.model_name_or_path.lower():         #add neox
+        model_class = GPTNeoXForCausalLM_WithLoss
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = 'left'
     else:
         model_class = AutoModelForSeq2SeqLM

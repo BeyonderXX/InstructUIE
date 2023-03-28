@@ -66,13 +66,22 @@ class MetricF1(MetricBase):
             f1 = 0
         else:
             f1 = 2 * recall * precision / (recall + precision)
+        self.recall = recall
+        self.precision = precision
         return f1
+    def get_detail(self):
+        if not hasattr(self, 'recall'):
+            f1 = self.get_metric()
+        return f1, self.recall, self.precision
     def get_last(self):
         return self.last_TP, self.last_FN, self.last_FP
 
 class MetricF1NA(MetricF1):
     "对于RE中关系类型为NA的特殊处理"
     def update(self, y_truth: set, y_pred: set):
+        self.last_TP = 0
+        self.last_FN = 0
+        self.last_FP = 0
         for truth in y_truth:
             if ',na,' in truth:
                 pattern = re.escape(truth).replace(',na,', ',(.+),')    # 因为在evaluator._extract的时候就全部变为了小写，所以是na而非NA
@@ -84,12 +93,12 @@ class MetricF1NA(MetricF1):
                         pred_fail = True
                         break
                 if not pred_fail:       # 只有当预测中没有给出错误的明确肯定时才加TP
-                    self.sum_TP += 1    # 至于FP会在后面统计，这里就不用计算了，否则会造成重复统计
+                    self.last_TP += 1    # 至于FP会在后面统计，这里就不用计算了，否则会造成重复统计
             else:
                 if truth in y_pred:
-                    self.sum_TP += 1
+                    self.last_TP += 1
                 else:
-                    self.sum_FN += 1
+                    self.last_FN += 1
         for pred in y_pred:
             if ',na,' in pred:
                 pattern = re.escape(pred).replace(',na,', ',(.+),')
@@ -101,12 +110,15 @@ class MetricF1NA(MetricF1):
                         pred_fail = True
                         break
                 if pred_fail:
-                    self.sum_FP += 1
+                    self.last_FP += 1
                 else:
-                    self.sum_TP += 0    # 这里不太确定，对于pred给出的(A,NA,B)，如果truth中不包含(A,*,B)，是否应该算作TP? 我姑且认为是不算的，预测中给出(A,NA,B)的话，对了不加分，错了要扣分。
+                    self.last_TP += 0    # 这里不太确定，对于pred给出的(A,NA,B)，如果truth中不包含(A,*,B)，是否应该算作TP? 我姑且认为是不算的，预测中给出(A,NA,B)的话，对了不加分，错了要扣分。
             else:
                 if pred not in y_truth:
-                    self.sum_FP += 1
+                    self.last_FP += 1
+        self.sum_TP += self.last_TP
+        self.sum_FN += self.last_FN
+        self.sum_FP += self.last_FP
 
 class AuditBase:
     def __init__(self, record_limit=16):
@@ -157,6 +169,11 @@ class AuditInsane(AuditBase):
     def _check(self, last) -> bool:
         return last['predict'].strip().lower() not in {'na', 'no relation', 'none', '[]', ''} and len(last['y_pred']) == 0    # 说了点什么，但又什么有用的都没说
 
+class AuditBothEmpty(AuditBase):
+    "检测Label和predict都为空的条目"
+    def _check(self, last) -> bool:
+        return len(last['y_truth']) == 0 and len(last['y_pred']) == 0
+
 class AuditNA(AuditBase):
     "检测包含类型为NA的输出，目前只用于RE"
     def _check(self, last) -> bool:
@@ -175,9 +192,11 @@ class AuditInvalid(AuditBase):
         valid_labels = set(valid_labels[0].strip().split(','))
 
         for pred in last['y_pred']:
-            label = pred.split(',')[1]
-            if label not in valid_labels:
-                return True
+            pred = pred.split(',')
+            if len(pred) == 3:
+                label = pred[1]
+                if label not in valid_labels:
+                    return True
         return False
 
 class AuditRepeat(AuditBase):
@@ -195,6 +214,11 @@ class AuditRetard(AuditBase):
             return last_metric.last_TP == 0
         else:
             return False
+        
+class AuditWhatever(AuditBase):
+    "无差别逮捕"
+    def _check(self, last) -> bool:
+        return True
 
 class EvaluatorBase:
     def __init__(self):
@@ -211,10 +235,12 @@ class EvaluatorBase:
         # 如果需要添加其他审计项目或者自定义实例化的话请考虑重载此方法
         self.audit = [
             AuditVoid(),
+            AuditBothEmpty(),
             AuditLong(),
             AuditInsane(),
             AuditRepeat(),
             AuditRetard(),
+            AuditWhatever()
         ]
     
     def _update_audit(self):
@@ -258,7 +284,7 @@ class EvaluatorBase:
         return self.metric.get_metric()
 
     def get_audit_report(self):
-        '获取所有审计项结果报告'
+        '获取所有审计项结果报告，返回一个json-like object'
         return {
             a.get_name() : a.get_report()
             for a in self.audit
@@ -270,7 +296,21 @@ class EvaluatorBase:
     @staticmethod
     def _remove_redundant_space(s):
         # '   a  b  \t  c  \n' --> 'a b c'
-        return ' '.join(s.split())
+        #'  kjc,  jns , ((  : ()  )  ( . )( ln  kc  a,,  ' --> 'kjc,jns,((:())(.)(ln kc a,,'
+        s = ' '.join(s.split())
+        s = re.sub(r'\s*(,|:|\(|\)|\.)\s*', r'\1', s)
+        return s
+    
+    @staticmethod
+    def _format(s):
+        # 集大成的格式规范化，集中解决各种格式的疑难杂症
+        s = EvaluatorBase._remove_redundant_space(s)
+        s = s.lower()
+        s = s.replace('{','').replace('}','')
+        s = re.sub(',+', ',', s)
+        s = re.sub('\.+', '.', s)
+        s.replace('orgnization', 'organization')
+        return s
     
     @staticmethod
     def _re_item(s):
@@ -278,27 +318,66 @@ class EvaluatorBase:
         # ' A,B,C)  ' --> ['A,B,C']
         # 因为有时模型的输出会缺少开头的左括号或者结尾的右括号
         # 该正则表达式不捕获括号，只捕获中间的内容
+        # Deprecated
         return re.findall(r'(?:^|\()([^\(\)]+?)(?:$|\))', s.strip())
+    
+    @staticmethod
+    def _resolve_brackets(s):
+        # 将最上层的配对括号内的内容抽取出来，以字符串列表的形式返回，抛弃括号外的内容。
+        # 此函数容忍句子开头缺失的一个左括号和句子结尾缺失的一个右括号（但不会同时容忍）
+        # 'a(b)(c(d))(' --> ['b', 'c(d)']
+        ans = []
+        level = 0
+        last_lb_idx = None
+        for idx, char in enumerate(s):
+            if char == '(':
+                if level == 0:
+                    last_lb_idx = idx
+                level += 1
+            elif char == ')':
+                if last_lb_idx is None and len(ans) == 0 and 0 != idx:
+                    ans.append(s[0 : idx])
+                if level == 1 and last_lb_idx+1 != idx:
+                    ans.append(s[last_lb_idx+1 : idx])
+                if level >= 1:
+                    level -= 1
+        if level == 1 and last_lb_idx+1 != len(s):
+            ans.append(s[last_lb_idx+1:])
+        return ans
+    
+    @staticmethod
+    def _resolve_comma(s):
+        # 将句子按逗号分割，但是括号内的逗号不算，分割出来的空字符串忽略
+        # 'a,(b,c),,d,' --> ['a', '(b,c)', 'd']
+        ans = []
+        level = 0
+        last_comma = -1
+        for idx, char in enumerate(s):
+            if char == '(':
+                level += 1
+            elif char == ')':
+                level -= 1
+            elif char == ',' and level == 0 and last_comma + 1 != idx:
+                ans.append(s[last_comma+1 : idx])
+                last_comma = idx
+        if last_comma+1 != len(s):
+            ans.append(s[last_comma+1:])
+        return ans
 
 class EvaluatorNER(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricF1()
     def _extract(self, json_data, predict):
-        predict = predict.split('Answer:')[-1]
-
         entity_truth = set()
-        for ent in re.findall(r'\(.+?\)', json_data['Instance']['label']):   # FIXME:字段名可能有变
-            ent = self._remove_redundant_space(ent)
-            entity_truth.add(ent.lower())
+        for ent in self._resolve_brackets(json_data['Instance']['label']):   # FIXME:字段名可能有变
+            ent = self._format(ent)
+            entity_truth.add(ent)
         
         entity_pred = set()
-        for ent in self._re_item(predict):
-            ent = ent.split(',')
-            if len(ent) == 2:
-                # 预测中不符合格式的实体会被抛弃
-                ent = '(%s, %s)'%(ent[0].strip(), ent[1].strip())
-                ent = self._remove_redundant_space(ent)
-                entity_pred.add(ent.lower())
+        for ent in self._resolve_brackets(predict):
+            # 部分地名可能会包含逗号，因此这里不检查逗号个数
+            ent = self._format(ent)
+            entity_pred.add(ent)
         return entity_truth, entity_pred
 
 class EvaluatorRE(EvaluatorBase):
@@ -313,32 +392,24 @@ class EvaluatorRE(EvaluatorBase):
         ]
 
     def _extract(self, json_data, predict):
-        # predict中理应只包含模型自己输出的内容，而不包含prompt，但这里还是处理一下
-        predict = predict.split('Answer:')[-1]
-
         y_truth = set()
-        for rel in re.findall(r'\(.+?\)', json_data['Instance']['label']):   # FIXME:字段名可能有变
+        for rel in self._resolve_brackets(json_data['Instance']['label']):   # FIXME:字段名可能有变
             # type为'no_relation'或'NA'的关系现在不忽略，下同
-            rel = self._remove_redundant_space(rel)
-            y_truth.add(rel.lower())
+            rel = self._format(rel)
+            y_truth.add(rel)
 
         y_pred = set()
         # 如果模型输出'no relation'或'[]'，则认为其预测的关系集合为空集，但这里并不需要做特殊判别
-        for rel in self._re_item(predict):
-            elements = tuple([i.strip() for i in rel.split(',')])
-            if len(elements) == 3:
-                # 预测中不符合格式的关系会被舍弃
-                rel = '(%s, %s, %s)'%elements
-                rel = self._remove_redundant_space(rel)
-                y_pred.add(rel.lower())
+        for rel in self._resolve_brackets(predict):
+            # 因为字段中可能本身就存在逗号，此处不再进行数量校验
+            rel = self._format(rel)
+            y_pred.add(rel)
         return y_truth, y_pred
 
 class EvaluatorMRC(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricF1()
     def _extract(self, json_data, predict):
-        predict = predict.split('Answer:')[-1]
-
         truth = self._remove_redundant_space(json_data['answer_text'])
         pred = self._remove_redundant_space(predict)
         return truth.lower(), pred.lower()
@@ -348,8 +419,6 @@ class EvaluatorSM(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricAcc()
     def _extract(self, json_data, predict):
-        predict = predict.split('Answer:')[-1]
-
         y_truth = self._remove_redundant_space(json_data['label'])
         y_pred = self._remove_redundant_space(predict)
         trans_dict = {
@@ -368,32 +437,23 @@ class EvaluatorEvent(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricAcc()
     def _extract(self, json_data, predict):
-        predict = predict.split('Answer:')[-1]
-
         y_truth = set()
-        for event in re.findall(r'\(.+?\)', json_data['Instance']['label']):   # FIXME:字段名可能有变
-            event_elements = [self._remove_redundant_space(i).lower() for i in event[1:-1].split(',')]  # 因为后面会排序，所以每个pair的规整化需要提前进行
+        for event in self._resolve_brackets(json_data['Instance']['label']):   # FIXME:字段名可能有变
+            event = self._format(event)
+            event.replace('arguments:', '')
+            event_elements = self._resolve_comma(event)  # 因为后面会排序，所以每个pair的规整化需要提前进行
             
-            event_string = ', '.join(sorted(event_elements)) # 'a:b,c:d'
-            event_string = '(%s)'%event_string
+            event_string = ','.join(sorted(event_elements)) # 'a:b,c:d'
             y_truth.add(event_string)
         
         y_pred = set()
-        for event in self._re_item(predict):
-            valid_event = True
-            pair_strings = []
-            for pair in event.split(','):
-                pair = pair.split(':')
-                if len(pair) != 2:
-                    valid_event = False
-                    break
-                pair = '%s:%s'%(pair[0].strip(), pair[1].strip())   # 实际上ground truth label里冒号后没有空格
-                pair = self._remove_redundant_space(pair.lower())   # 同上，需要在排序之前提前规整化
-                pair_strings.append(pair)
-            if valid_event:
-                event_string = ', '.join(sorted(pair_strings))
-                event_string = '(%s)'%event_string
-                y_pred.add(event_string)
+        for event in self._resolve_brackets(predict):
+            event = self._format(event)
+            event.replace('arguments:', '')
+            event_elements = self._resolve_comma(event)  # 因为后面会排序，所以每个pair的规整化需要提前进行
+            
+            event_string = ','.join(sorted(event_elements)) # 'a:b,c:d'
+            y_truth.add(event_string)
         return y_truth, y_pred
 
 # 因为后来的实际格式与最初表格中的不同，因此下列测试可能无法通过，仅作为使用示例
@@ -407,7 +467,7 @@ if __name__ == '__main__':
         json_data = json.loads(json_str)
         evaluator.add(json_data, predict)
         print(evaluator.get_metric())
-        print(evaluator.get_record)
+        print(evaluator.get_report())
     
     test(
         eval_ner,
