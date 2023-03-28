@@ -35,7 +35,7 @@ from filelock import FileLock
 from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,
-    AutoModelForCausalLM,                       #add
+    AutoModelForCausalLM,  # add
     AutoTokenizer,
     HfArgumentParser,
     Seq2SeqTrainingArguments,
@@ -59,7 +59,6 @@ os.environ['WANDB_DISABLED'] = "True"
 logger = logging.getLogger(__name__)
 CURRENT_DIR = os.path.dirname(__file__)
 
-
 try:
     nltk.data.find("tokenizers/punkt")
 except (LookupError, OSError):
@@ -69,6 +68,7 @@ except (LookupError, OSError):
         )
     with FileLock(".lock") as lock:
         nltk.download("punkt", quiet=True)
+
 
 @dataclass
 class ModelArguments:
@@ -101,14 +101,14 @@ class ModelArguments:
         default=False,
         metadata={
             "help": "Will use the token generated when running `transformers-cli login` (necessary to use this script "
-            "with private models)."
+                    "with private models)."
         },
     )
     resize_position_embeddings: Optional[bool] = field(
         default=None,
         metadata={
             "help": "Whether to automatically resize the position embeddings if `max_source_length` exceeds "
-            "the model's position embeddings."
+                    "the model's position embeddings."
         },
     )
 
@@ -147,7 +147,7 @@ class DataTrainingArguments:
         default=512,
         metadata={
             "help": "The maximum total input sequence length after tokenization. Sequences longer "
-            "than this will be truncated, sequences shorter will be padded."
+                    "than this will be truncated, sequences shorter will be padded."
         },
     )
     # for decoder model, it means max_new_tokens
@@ -155,7 +155,7 @@ class DataTrainingArguments:
         default=50,
         metadata={
             "help": "The maximum total sequence length for target text after tokenization. Sequences longer "
-            "than this will be truncated, sequences shorter will be padded."
+                    "than this will be truncated, sequences shorter will be padded."
         },
     )
     repetition_penalty: Optional[float] = field(
@@ -168,34 +168,35 @@ class DataTrainingArguments:
         default=1,
         metadata={
             "help": "Number of beams to use for evaluation. This argument will be passed to ``model.generate``, "
-            "which is used during ``evaluate`` and ``predict``."
+                    "which is used during ``evaluate`` and ``predict``."
         },
     )
     max_num_instances_per_task: int = field(
         default=10000, metadata={"help": "The maximum number of instances we will consider for each training task."}
     )
     max_num_instances_per_eval_task: int = field(
-        default=200, metadata={"help": "The maximum number of instances we will consider for each validation/test task."}
+        default=200,
+        metadata={"help": "The maximum number of instances we will consider for each validation/test task."}
     )
     max_train_samples: Optional[int] = field(
         default=None,
         metadata={
             "help": "For debugging purposes or quicker training, truncate the number of training examples to this "
-            "value if set."
+                    "value if set."
         },
     )
     max_eval_samples: Optional[int] = field(
         default=None,
         metadata={
             "help": "For debugging purposes or quicker training, truncate the number of evaluation examples to this "
-            "value if set."
+                    "value if set."
         },
     )
     max_predict_samples: Optional[int] = field(
         default=None,
         metadata={
             "help": "For debugging purposes or quicker training, truncate the number of prediction examples to this "
-            "value if set."
+                    "value if set."
         },
     )
     num_examples: Optional[int] = field(
@@ -219,6 +220,10 @@ class DataTrainingArguments:
     common_dataset_name: Optional[str] = field(
         default=None,
         metadata={"help": "common dataset name for zero shot."}
+    )
+    over_sampling: Optional[str] = field(
+        default=False,
+        metadata={"help": "Whether to over sampling the dataset to max_num_instances_per_task"}
     )
 
 
@@ -293,7 +298,8 @@ def main():
         cache_dir=data_cache_dir,  # for debug, change dataset size, otherwise open it
         max_num_instances_per_task=data_args.max_num_instances_per_task,
         max_num_instances_per_eval_task=data_args.max_num_instances_per_eval_task,
-        num_examples=data_args.num_examples
+        num_examples=data_args.num_examples,
+        over_sampling=data_args.over_sampling
     )
     raw_datasets.cleanup_cache_files()
 
@@ -326,7 +332,7 @@ def main():
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = 'left'
 
-    elif 'neox' in model_args.model_name_or_path.lower():         #add neox
+    elif 'neox' in model_args.model_name_or_path.lower():  # add neox
         model_class = GPTNeoXForCausalLM_WithLoss
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
@@ -344,8 +350,8 @@ def main():
     model.resize_token_embeddings(len(tokenizer))
 
     if (
-        hasattr(model.config, "max_position_embeddings")
-        and model.config.max_position_embeddings < data_args.max_source_length
+            hasattr(model.config, "max_position_embeddings")
+            and model.config.max_position_embeddings < data_args.max_source_length
     ):
         if model_args.resize_position_embeddings is None:
             logger.warning(
@@ -414,10 +420,12 @@ def main():
         decoded_preds = skip_instructions(model, preds, tokenizer)
         references = [e["Instance"]["label"] for e in dataset]
         result = compute_metrics(predictions=decoded_preds, references=references)
-        result_per_task = compute_grouped_metrics(predictions=decoded_preds, references=references, groups=dataset["Task"])
+        result_per_task = compute_grouped_metrics(predictions=decoded_preds, references=references,
+                                                  groups=dataset["Task"])
         result.update(result_per_task)
         categories = dataset["Dataset"]
-        result_per_category = compute_grouped_metrics(predictions=decoded_preds, references=references, groups=categories)
+        result_per_category = compute_grouped_metrics(predictions=decoded_preds, references=references,
+                                                      groups=categories)
         result.update(result_per_category)
         prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
         result["gen_len"] = np.mean(prediction_lens)

@@ -16,13 +16,11 @@
 # Lint as: python3
 """InstructUIE Dataset."""
 
-
 import json
 import os
 import random
 import datasets
 from hashlib import md5
-
 
 logger = datasets.logging.get_logger(__name__)
 TASK_CONFIG_FILES = {"train": "train_tasks.json", "dev": "dev_tasks.json", "test": "test_tasks.json"}
@@ -64,21 +62,24 @@ class UIEConfig(datasets.BuilderConfig):
         max_num_instances_per_task: max training sample size of each task
         max_num_instances_per_eval_task: max eval sample size of each task
     """
+
     def __init__(
-        self,
-        *args,
-        data_dir=None,
-        instruction_file=None,
-        instruction_strategy=None,
-        task_config_dir=None,
-        num_examples=None,
-        max_num_instances_per_task=None,
-        max_num_instances_per_eval_task=None,
-        **kwargs
+            self,
+            *args,
+            data_dir=None,
+            instruction_file=None,
+            instruction_strategy=None,
+            task_config_dir=None,
+            num_examples=None,
+            max_num_instances_per_task=None,
+            max_num_instances_per_eval_task=None,
+            over_sampling=None,
+            **kwargs
     ):
         super().__init__(*args, **kwargs)
         self.data_dir = data_dir
         self.num_examples = num_examples
+        self.over_sampling = over_sampling
         self.instructions = self._parse_instruction(instruction_file)
         self.task_configs = self._parse_task_config(task_config_dir)
         self.instruction_strategy = instruction_strategy
@@ -214,7 +215,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 name=datasets.Split.VALIDATION,
                 gen_kwargs={
                     "path": split_dir,
-                    "task_config":  task_configs['dev'],
+                    "task_config": task_configs['dev'],
                     "max_num_instances_per_task": self.config.max_num_instances_per_eval_task,
                     "subset": "dev"
                 }),
@@ -223,7 +224,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 gen_kwargs={
                     "path": split_dir,
                     "task_config": task_configs['test'],
-                    "max_num_instances_per_task": None,     # default load total test samples to test
+                    "max_num_instances_per_task": None,  # default load total test samples to test
                     "subset": "test"
                 }),
         ]
@@ -251,6 +252,10 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
     def _sampling_dataset(self, instances, sampling_strategy, max_num_instances):
         if sampling_strategy == 'random' and max_num_instances is not None and max_num_instances >= 0:
             instances = instances[:max_num_instances]
+        if self.config.over_sampling and len(instances) < max_num_instances:
+            origin_instances = instances
+            while len(instances) < max_num_instances:
+                instances.append(random.choice(origin_instances))
 
         return instances
 
@@ -362,7 +367,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
             if len(event_pairs) > 0:
                 label = ", ".join(["(type:{}, trigger:{}, arguments:{})".format(type, trigger, arguments)
-                                  for (type, trigger, arguments) in event_pairs])
+                                   for (type, trigger, arguments) in event_pairs])
             else:
                 label = 'None'
 
@@ -401,7 +406,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
                 idx = -1
                 instances = []
-                for sample in load_func(ds_path, labels_path, ds_name, sampling_strategy, max_num_instances_per_task, subset):
+                for sample in load_func(ds_path, labels_path, ds_name, sampling_strategy, max_num_instances_per_task,
+                                        subset):
                     idx += 1
                     instances.append(sample)
                     yield f"{task}##{ds_path}##{idx}", sample
