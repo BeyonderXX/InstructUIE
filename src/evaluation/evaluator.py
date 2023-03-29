@@ -3,6 +3,9 @@
 
 import json
 import re
+import matplotlib.pyplot as plt
+import numpy as np
+import os
 
 class MetricBase:
     def __init__(self):
@@ -174,6 +177,16 @@ class AuditBothEmpty(AuditBase):
     def _check(self, last) -> bool:
         return len(last['y_truth']) == 0 and len(last['y_pred']) == 0
 
+class AuditLabelEmptyOnly(AuditBase):
+    "检测label为空，但predict不为空"
+    def _check(self, last) -> bool:
+        return len(last['y_truth']) == 0 and len(last['y_pred']) != 0
+
+class AuditPredEmptyOnly(AuditBase):
+    "检测predict为空，label不为空"
+    def _check(self, last) -> bool:
+        return len(last['y_truth']) != 0 and len(last['y_pred']) == 0
+    
 class AuditNA(AuditBase):
     "检测包含类型为NA的输出，目前只用于RE"
     def _check(self, last) -> bool:
@@ -183,7 +196,7 @@ class AuditNA(AuditBase):
         return False
 
 class AuditInvalid(AuditBase):
-    "检测包含非法标签类型的输出，目前只用于RE"
+    "检测包含非法标签类型的输出，目前只用于RE和NER"
     def _check(self, last) -> bool:
         valid_labels = re.findall('Option:(.+?)\n', last['json_data']['Instance']['instruction'])
         if len(valid_labels) == 0:
@@ -197,6 +210,33 @@ class AuditInvalid(AuditBase):
                 label = pred[1]
                 if label not in valid_labels:
                     return True
+        return False
+
+class AuditFidelity(AuditBase):
+    "检测不来源于句子的实体，目前只用于RE和NER"
+    def _check(self, last) -> bool:
+        for item in last['y_pred']:
+            item = item.split(',')       #   这里对于实体或标签本身就包含逗号的情况不好处理，
+            if len(item) <= 2:
+                ents = (item[0],)      # entities
+            else:
+                ents = (item[0], item[-1])
+            for ent in ents:
+                if EvaluatorBase._format(ent) not in EvaluatorBase._format(last['json_data']['Instance']['sentence']):
+                    return True
+            return False
+
+class AuditGoldenlabelFault(AuditBase):
+    "golden label中的三元组有空缺，目前只用于RE"
+    def _check(self, last) -> bool:
+        for item in last['y_truth']:
+            cnt = 0
+            for i in item.split(','):
+                i = i.strip()
+                if i != '':
+                    cnt += 1
+            if cnt <= 2:
+                return True
         return False
 
 class AuditRepeat(AuditBase):
@@ -219,7 +259,134 @@ class AuditWhatever(AuditBase):
     "无差别逮捕"
     def _check(self, last) -> bool:
         return True
+    
+class AuditConfuseMatrix(AuditBase):
+    """
+    1.检测自相矛盾，比如一个对于同一个实体有两个不同的标签
+        例如：[(texas, person), (texas, place)]
+    2.同时维护和导出混淆矩阵，只用于NER和RE
+    """
+    # 这个子类的第二个功能背离了Audit系列的初衷，或许放到Metric系列会更好
+    # 但是后者的方案会需要扩大Metric能获得的信息范围，框架需要大改。
+    # 或许所有的代码都是这样一步一步变成屎山的吧。。
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.options = None
+        self.options2idx = None
+        self.matrix = None
+        self.dataset_name = None
+    def _check(self, last) -> bool:
+        raise NotImplementedError()
+    @staticmethod
+    def _resolve(s):
+        # 'A,B,C' --> 'A,C', 'B'
+        # 'A,B' --> 'A', 'B'
+        # 'A,B,C,D' --> None
+        # 此处假定s已经经过了标准格式化
+        s = [i.strip() for i in s.split(',')]
+        if len(s) == 2:
+            return s[0], s[1]
+        elif len(s) == 3:
+            return '%s,%s'%(s[0],s[1]), s[2]
+        else:
+            return None
+    def update(self, last):
+        if self.dataset_name is None:
+            self.dataset_name = last['json_data']['Dataset']
+            self.options = re.findall('Option:(.+?)\n', last['json_data']['Instance']['instruction'])[0].split(',')
+            self.options = [EvaluatorBase._format(s) for s in self.options]
+            if 'na' not in self.options:
+                self.options.append('na')
+            self.options2idx = dict()
+            for idx, option in enumerate(self.options):
+                self.options2idx[option] = idx
+            N = len(self.options)
+            self.matrix = np.zeros((N, N), dtype=np.int16)
+        truth = dict()
+        pred = dict()
+        is_conflict = False
+        for item in last['y_truth']:
+            res = self._resolve(item)
+            if res is not None:
+                if res[0] in truth:
+                    is_conflict = True
+                truth[res[0]] = res[1]
+        for item in last['y_pred']:
+            res = self._resolve(item)
+            if res is not None:
+                if res[0] in pred:
+                    is_conflict = True
+                pred[res[0]] = res[1]
+        for k in truth:
+            if truth[k] not in self.options2idx:
+                continue    # 可能是因为出现了意料之外的格式解析异常
+            idx_truth = self.options2idx[truth[k]]
+            if k in pred:
+                if pred[k] in self.options2idx:
+                    idx_pred = self.options2idx[pred[k]]
+                    self.matrix[idx_truth][idx_pred] += 1
+            else:
+                idx_pred = self.options2idx['na']
+                self.matrix[idx_truth][idx_pred] += 1
+        for k in pred:
+            if pred[k] not in self.options2idx:
+                continue
+            idx_pred = self.options2idx[pred[k]]
+            if k not in truth:
+                idx_truth = self.options2idx['na']
+                self.matrix[idx_truth][idx_pred] += 1
 
+        if is_conflict:
+            self.cnt += 1
+            if self.record_limit < 0 or len(self.record) < self.record_limit:
+                # record limit check
+                self.record.append({
+                    'json_data': last['json_data'],
+                    'predict': last['predict'],
+                    'y_truth': list(last['y_truth']),
+                    'y_pred': list(last['y_pred'])
+                })
+
+    def get_report(self):
+        root = 'img'    # 虽然硬编码是坏行为，但这是生成只写的临时数据，该数据只会被用户阅读，不会被程序读取。
+        if not os.path.exists(root):
+            os.mkdir(root)
+        fpath = os.path.join(root, '%s.png'%self.dataset_name)
+        if True:
+            # 大部分时候并不关心主对角线和na上的元素，mask掉减少视觉干扰
+            matrix = ((1-np.eye(self.matrix.shape[0])) * self.matrix).astype(np.int16)    
+            na = self.options2idx['na']
+            matrix[na,:]=0
+            matrix[:,na]=0
+        else:
+            matrix = self.matrix
+        self._plot_matrix(matrix, self.options, fpath, title=self.dataset_name)
+        return super().get_report()
+    @staticmethod
+    def _plot_matrix(A, labels, fpath, title=None, min_size = 50):
+        N = len(labels)
+        figsize = N * min_size / 100 + 1, N * min_size / 100 + 1
+        fig, ax = plt.subplots(figsize=figsize)
+
+        im = ax.imshow(A, cmap='viridis')
+
+        ax.set_xticks(np.arange(N))
+        ax.set_yticks(np.arange(N))
+        ax.set_xticklabels(labels)
+        ax.set_yticklabels(labels)
+
+        plt.setp(ax.get_xticklabels(), rotation=45, ha='right', rotation_mode='anchor')
+
+        for i in range(N):
+            for j in range(N):
+                text = ax.text(j, i, A[i, j], ha='center', va='center', color='w')
+        
+        if title is not None:
+            ax.set_title(title)
+        fig.tight_layout()
+        plt.savefig(fpath)
+        plt.close()
+    
 class EvaluatorBase:
     def __init__(self):
         self.last = dict()
@@ -236,6 +403,8 @@ class EvaluatorBase:
         self.audit = [
             AuditVoid(),
             AuditBothEmpty(),
+            AuditLabelEmptyOnly(),
+            AuditPredEmptyOnly(),
             AuditLong(),
             AuditInsane(),
             AuditRepeat(),
@@ -298,7 +467,7 @@ class EvaluatorBase:
         # '   a  b  \t  c  \n' --> 'a b c'
         #'  kjc,  jns , ((  : ()  )  ( . )( ln  kc  a,,  ' --> 'kjc,jns,((:())(.)(ln kc a,,'
         s = ' '.join(s.split())
-        s = re.sub(r'\s*(,|:|\(|\)|\.)\s*', r'\1', s)
+        s = re.sub(r'\s*(,|:|\(|\)|\.|_)\s*', r'\1', s)
         return s
     
     @staticmethod
@@ -367,6 +536,14 @@ class EvaluatorBase:
 class EvaluatorNER(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricF1()
+
+    def _init_audit(self):
+        super()._init_audit()    
+        self.audit += [
+            AuditInvalid(),
+            AuditFidelity(),
+            AuditConfuseMatrix()
+        ]
     def _extract(self, json_data, predict):
         entity_truth = set()
         for ent in self._resolve_brackets(json_data['Instance']['label']):   # FIXME:字段名可能有变
@@ -388,6 +565,9 @@ class EvaluatorRE(EvaluatorBase):
         super()._init_audit()    
         self.audit += [
             AuditInvalid(),
+            AuditFidelity(),
+            AuditGoldenlabelFault(),
+            AuditConfuseMatrix(),
             AuditNA()
         ]
 
