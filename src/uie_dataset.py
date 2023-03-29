@@ -149,7 +149,7 @@ class UIEConfig(datasets.BuilderConfig):
             task_config_file = os.path.join(task_config_dir, file_name)
 
             if not os.path.exists(task_config_file):
-                raise ValueError('Please check {} config, {} not exists!'.format(task, file_name))
+                raise ValueError('Please check {} config, {} not exists!'.format(task, task_config_file))
 
             with open(task_config_file, 'r+') as f:
                 task_configs[task] = json.loads(f.read())
@@ -179,12 +179,14 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                         "id": datasets.Value("string"),
                         "sentence": datasets.Value("string"),
                         "label": datasets.Value("string"),
+                        "ground_truth": datasets.Value("string")
                     }],
                     "Instance": {
                         "id": datasets.Value("string"),
                         "sentence": datasets.Value("string"),
                         "label": datasets.Value("string"),
-                        "instruction": datasets.Value("string")
+                        "instruction": datasets.Value("string"),
+                        "ground_truth": datasets.Value("string")
                     }
                 }
             ),
