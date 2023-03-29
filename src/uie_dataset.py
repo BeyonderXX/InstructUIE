@@ -108,8 +108,10 @@ class UIEConfig(datasets.BuilderConfig):
         if not instruction_file:
             return None
         instructions = {"zero-shot": {}, "few-shot": {}}
+
         with open(instruction_file, 'r+') as f:
             origin_instructions = json.load(f)
+
         for task in origin_instructions:
             for task_instruction in origin_instructions[task]:
                 instruct_type = task_instruction["instruction_type"]
@@ -252,11 +254,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
     def _sampling_dataset(self, instances, sampling_strategy, max_num_instances):
         if sampling_strategy == 'random' and max_num_instances is not None and max_num_instances >= 0:
             instances = instances[:max_num_instances]
-<<<<<<< HEAD
-        if max_num_instances!=None and self.config.over_sampling and len(instances)<max_num_instances:
-=======
         if max_num_instances!=None and self.config.over_sampling and len(instances) < max_num_instances:
->>>>>>> cb50be8d07dbef778ccfa2cc037bf6701b1dd8d4
             origin_instances = instances
             while len(instances) < max_num_instances:
                 instances.append(random.choice(origin_instances))
@@ -292,6 +290,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 "id": str(idx),
                 "sentence": instance['sentence'],
                 "label": label,
+                "ground_truth": label,
                 "instruction": instruction
             }
 
@@ -309,9 +308,11 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
             instruction = self._get_instruction('RE')
             instruction += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
             relation_pairs = []
+            ground_truth_pairs = []
 
             for relation in instance['relations']:
                 if relation['type'] == 'NA' or relation['type'] == '':
+                    ground_truth_pairs.append([relation['head']['name'], 'NA', relation['tail']['name']])
                     continue
                 relation_pair = [relation['head']['name'], relation['type'], relation['tail']['name']]
                 ground_truth_pairs.append(relation_pair)
@@ -322,19 +323,17 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
             else:
                 label = 'None'
 
-<<<<<<< HEAD
-=======
             if len(ground_truth_pairs) > 0:
                 ground_truth = ", ".join(["({}, {}, {})".format(h, r, t) for (h, r, t) in ground_truth_pairs])
             else:
                 logger.error("******Error item: {}******".format(instance))
                 raise Exception('Dataset Error:{}, No ground truth!'.format(dataset_name))
 
->>>>>>> cb50be8d07dbef778ccfa2cc037bf6701b1dd8d4
             example["Instance"] = {
                 "id": str(idx),
                 "sentence": instance['sentence'],
                 "label": label,
+                "ground_truth": ground_truth,
                 "instruction": instruction
             }
 
@@ -351,7 +350,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
-            instruction = self._get_instruction('RE')
+            instruction = self._get_instruction('EE')
             instruction += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
             event_pairs = []
 
@@ -372,7 +371,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
             if len(event_pairs) > 0:
                 label = ", ".join(["(type:{}, trigger:{}, arguments:{})".format(type, trigger, arguments)
-                                for (type, trigger, arguments) in event_pairs])
+                                   for (type, trigger, arguments) in event_pairs])
             else:
                 label = 'None'
 
@@ -380,6 +379,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 "id": str(idx),
                 "sentence": instance['sentence'],
                 "label": label,
+                "ground_truth": label,
                 "instruction": instruction
             }
 

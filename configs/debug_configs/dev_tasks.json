@@ -1,11 +1,9 @@
 {
-    "NER": [
-        {
-            "sampling strategy": "random",
-            "dataset name": "mit-restaurant"
-        }
-    ]
+      "NER": [
+        {"sampling strategy": "random", "dataset name": "conll2003"}
+      ]
 }
+
 
 
 
