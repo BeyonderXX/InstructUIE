@@ -315,6 +315,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                     ground_truth_pairs.append([relation['head']['name'], 'NA', relation['tail']['name']])
                     continue
                 relation_pair = [relation['head']['name'], relation['type'], relation['tail']['name']]
+                ground_truth_pairs.append(relation_pair)
                 relation_pairs.append(relation_pair)
 
             if len(relation_pairs) > 0:
@@ -325,6 +326,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
             if len(ground_truth_pairs) > 0:
                 ground_truth = ", ".join(["({}, {}, {})".format(h, r, t) for (h, r, t) in ground_truth_pairs])
             else:
+                logger.error("******Error item: {}******".format(instance))
                 raise Exception('Dataset Error:{}, No ground truth!'.format(dataset_name))
 
             example["Instance"] = {
