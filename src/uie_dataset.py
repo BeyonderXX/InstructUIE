@@ -148,7 +148,7 @@ class UIEConfig(datasets.BuilderConfig):
             task_config_file = os.path.join(task_config_dir, file_name)
 
             if not os.path.exists(task_config_file):
-                raise ValueError('Please check {} config, {} not exists!'.format(task, file_name))
+                raise ValueError('Please check {} config, {} not exists!'.format(task, task_config_file))
 
             with open(task_config_file, 'r+') as f:
                 task_configs[task] = json.loads(f.read())
@@ -178,12 +178,14 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                         "id": datasets.Value("string"),
                         "sentence": datasets.Value("string"),
                         "label": datasets.Value("string"),
+                        "ground_truth": datasets.Value("string")
                     }],
                     "Instance": {
                         "id": datasets.Value("string"),
                         "sentence": datasets.Value("string"),
                         "label": datasets.Value("string"),
-                        "instruction": datasets.Value("string")
+                        "instruction": datasets.Value("string"),
+                        "ground_truth": datasets.Value("string")
                     }
                 }
             ),
@@ -250,7 +252,11 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
     def _sampling_dataset(self, instances, sampling_strategy, max_num_instances):
         if sampling_strategy == 'random' and max_num_instances is not None and max_num_instances >= 0:
             instances = instances[:max_num_instances]
+<<<<<<< HEAD
         if max_num_instances!=None and self.config.over_sampling and len(instances)<max_num_instances:
+=======
+        if max_num_instances!=None and self.config.over_sampling and len(instances) < max_num_instances:
+>>>>>>> cb50be8d07dbef778ccfa2cc037bf6701b1dd8d4
             origin_instances = instances
             while len(instances) < max_num_instances:
                 instances.append(random.choice(origin_instances))
@@ -308,6 +314,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 if relation['type'] == 'NA' or relation['type'] == '':
                     continue
                 relation_pair = [relation['head']['name'], relation['type'], relation['tail']['name']]
+                ground_truth_pairs.append(relation_pair)
                 relation_pairs.append(relation_pair)
 
             if len(relation_pairs) > 0:
@@ -315,6 +322,15 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
             else:
                 label = 'None'
 
+<<<<<<< HEAD
+=======
+            if len(ground_truth_pairs) > 0:
+                ground_truth = ", ".join(["({}, {}, {})".format(h, r, t) for (h, r, t) in ground_truth_pairs])
+            else:
+                logger.error("******Error item: {}******".format(instance))
+                raise Exception('Dataset Error:{}, No ground truth!'.format(dataset_name))
+
+>>>>>>> cb50be8d07dbef778ccfa2cc037bf6701b1dd8d4
             example["Instance"] = {
                 "id": str(idx),
                 "sentence": instance['sentence'],
