@@ -255,7 +255,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         if sampling_strategy == 'random' and max_num_instances is not None and max_num_instances >= 0:
             instances = instances[:max_num_instances]
         if max_num_instances!=None and self.config.over_sampling and len(instances) < max_num_instances:
-            origin_instances = instances
+            origin_instances = instances.copy()
             while len(instances) < max_num_instances:
                 instances.append(random.choice(origin_instances))
 
