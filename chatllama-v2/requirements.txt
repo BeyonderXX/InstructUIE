@@ -1,0 +1,14 @@
+torch
+fairscale
+fire
+sentencepiece
+rouge
+beartype
+deepspeed
+einops
+langchain>=0.0.103
+tqdm
+transformers
+datasets
+openai
+plotly

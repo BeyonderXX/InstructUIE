@@ -1,0 +1,128 @@
+{
+    "EE": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "GENIA"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "PHEE"
+        }
+    ],
+    "RE": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "ADE_corpus"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "NYT11"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "New-York-Times-RE"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "semval-RE"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "conll04"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "GIDS"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "SciERC"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "kbp37"
+        }
+    ],
+    "NER": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "ACE 2005"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "AnatEM"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "bc2gm"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "bc4chemd"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "bc5cdr"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "Broad Tweet Corpus"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "CoNLL 2003"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "FabNER"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "FindVehicle"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "GENIA_NER"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "HarveyNER"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "mit-movie"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "mit-restaurant"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "MultiNERD"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "ncbi"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "Ontonotes"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "PolyglotNER"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "TweetNER7"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "WikiANN en"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "WikiNeural"
+        }
+    ]
+}
