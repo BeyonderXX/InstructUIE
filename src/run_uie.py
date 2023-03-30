@@ -497,7 +497,6 @@ def main():
     num_beams = data_args.num_beams if data_args.num_beams is not None else training_args.generation_num_beams
     repetition_penalty = data_args.repetition_penalty
 
-    # TODO, test debug, bloomz, flan-t5
     if training_args.do_predict:
         logger.info("*** Prediction ***")
         logger.info("*** Loading CheckPoint ***")
