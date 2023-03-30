@@ -1,51 +1,51 @@
 {
     "EE": [
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "GENIA"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "PHEE"
         }
     ],
     "RE": [
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "ADE_corpus"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "NYT11"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "New-York-Times-RE"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "semval-RE"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "conll04"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "GIDS"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "SciERC"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "kbp37"
         }
     ],
     "NER": [
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "ACE 2005"
         },
         {
@@ -57,7 +57,7 @@
             "dataset name": "bc2gm"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "bc4chemd"
         },
         {
@@ -65,11 +65,11 @@
             "dataset name": "bc5cdr"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "Broad Tweet Corpus"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "CoNLL 2003"
         },
         {
@@ -117,7 +117,7 @@
             "dataset name": "mit-restaurant"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "MultiNERD"
         },
         {
@@ -125,23 +125,23 @@
             "dataset name": "ncbi"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "Ontonotes"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "PolyglotNER"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "TweetNER7"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "WikiANN en"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "WikiNeural"
         }
     ]
