@@ -46,8 +46,8 @@ actor_config:
   batch_size: 8
   # number iteration after print
   iteration_per_print: 1
-  lr: 0.00001
-  epochs: 5
+  lr: 0.00002
+  epochs: 3
   # deepspeed settings
   deepspeed_enable: True
   deepspeed_config_path: "./chatllama_configs/ds_config_llama.json"
