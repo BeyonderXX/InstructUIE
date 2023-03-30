@@ -50,8 +50,9 @@ step3. 运行generate.py, 修改参数
 参数说明均在代码中有详细注释. 输出的数据集格式应为:  
 {"Task": .., "Dataset": .., "user_input": .., "completion": ..}  
 
-step4. 修改chatllama_configs/config_uie.yaml和chatllama_configs/ds_config_llama.json, 运行main.py  
-1. config_uie.yaml中, 只需要修改actor_config部分的参数. (line28)
+step4. 修改chatllama_configs/config_uie.yaml和chatllama_configs/ds_config_llama.json  
+运行CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed main.py chatllama_configs/config_uie.yaml --type ACTOR
+1. config_uie.yaml中, 只需要修改actor_config部分的参数 (line28)
 2. config_uie.yaml中, 可能需要修改的参数为:  
 model_path: 你保存的7B文件夹(llama模型权重及分词器)的路径  
 checkpoint_folder: 训练好的权重保存路径, 请确保该目录存在. 若检测到不存在, 不会自动生成文件夹而是报错  
