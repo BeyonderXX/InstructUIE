@@ -229,6 +229,10 @@ class DataTrainingArguments:
 
 @dataclass
 class UIETrainingArguments(Seq2SeqTrainingArguments):
+    gradient_checkpointing: Optional[bool] = field(
+        default=False,
+        metadata={"help": "Whether to use computing time to gain more memory"}
+    )
     denser_evaluation: Optional[bool] = field(
         default=False,
         metadata={"help": "If specifid, the model will do more evaluation at the beginning of training."}
@@ -440,7 +444,10 @@ def main():
                         "Prediction": pred
                     }) + "\n")
         return result
-
+    print(f"-----Gradient checkpointing: {training_args.gradient_checkpointing} -----")
+    if training_args.gradient_checkpointing:
+        model.gradient_checkpointing_enable()
+    
     trainer = UIETrainer(
         model=model,
         args=training_args,
