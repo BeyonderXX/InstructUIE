@@ -5,7 +5,7 @@
 
 ├── chatllama  
 │   ├── rlhf  
-│   ├── actor.py                   *// chatllama有监督训练模块的主要逻辑*  
+│   │   └── actor.py                   *// chatllama有监督训练模块的主要逻辑*  
 │   └── llama_model.py             *// chatllama修改过的llama模型*  
 
 ├── chatllama_configs  
