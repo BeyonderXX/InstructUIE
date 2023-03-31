@@ -125,7 +125,7 @@ if do_train:
             instruction = train_input["instructions"][i]
             input = train_input["inputs"][i]
             completion = train_input["labels"][i]
-            user_input = instruction + "Text: " + input + "\nAnswer: "
+            user_input = "Task: " + task + "\nDataset: ": dataset + "\n" + instruction + "Text: " + input + "\nAnswer: "
             if (len(user_input) + len(completion)) > max_seq_len - 5:
                 continue
             train_set.append({"Task": task, "Dataset": dataset, "user_input": user_input, "completion": completion})
@@ -140,7 +140,7 @@ if do_eval:
             instruction = dev_input["instructions"][j]
             input = dev_input["inputs"][j]
             completion = dev_input["labels"][j]
-            user_input = instruction + "Text: " + input + "\nAnswer: "
+            user_input = "Task: " + task + "\nDataset: ": dataset + "\n" + instruction + "Text: " + input + "\nAnswer: "
             if (len(user_input) + len(completion)) > max_seq_len - 5:
                 continue
             dev_set.append({"Task": task, "Dataset": dataset, "user_input": user_input, "completion": completion})
@@ -155,7 +155,7 @@ if do_predict:
             instruction = test_input["instructions"][k]
             input = test_input["inputs"][k]
             completion = test_input["labels"][k]
-            user_input = instruction + "Text: " + input + "\nAnswer: "
+            user_input = "Task: " + task + "\nDataset: ": dataset + "\n" + instruction + "Text: " + input + "\nAnswer: "
             if (len(user_input) + len(completion)) > max_seq_len - 5:
                 continue
             test_set.append({"Task": task, "Dataset": dataset, "user_input": user_input, "completion": completion})
