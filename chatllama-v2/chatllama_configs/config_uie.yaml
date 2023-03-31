@@ -29,9 +29,9 @@ actor_config:
   model: "llama-7B"
   model_path: "./7B"
   checkpoint_folder: "./7B/checkpoints"
-  tokenizer_folder: ".7B/tokenizer.model"
-  train_dataset_path: ".UIE_dataset/UIE_train.json"
-  validation_dataset_path: ".UIE_dataset/UIE_dev.json"
+  tokenizer_folder: "./7B/tokenizer.model"
+  train_dataset_path: "./UIE_dataset/UIE_train.json"
+  validation_dataset_path: "./UIE_dataset/UIE_dev.json"
   # froze model embedding during training
   froze_embeddings: True
   # use fairscale layers to build the model instead of vanilla pytorch
