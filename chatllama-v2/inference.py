@@ -68,7 +68,7 @@ def main(p_index: int, ckpt_dir: str, tokenizer_path: str, output_path: str, fro
     tasks = []
     datasets = []
     for item in dataset:
-        prompts.append(item["user_input"] + "\t") # "\t" is important for the 13B because it serves as a special token to seperate "prompt" and "answer". But it seems okay for the 7B to neglect it.
+        prompts.append("Task: " + item["Task"] + "\nDataset: " + item["Dataset"] + "\n" + item["user_input"] + "\t")
         labels.append(item["completion"])
         tasks.append(item["Task"])
         datasets.append(item["Dataset"])
