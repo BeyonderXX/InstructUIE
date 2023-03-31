@@ -43,7 +43,7 @@ from transformers import (
 from transformers.file_utils import is_offline_mode
 from transformers.trainer_utils import get_last_checkpoint
 
-from model.bloom import BloomForCausalLM_WithLoss
+from model.bloom import BloomForCausalLM_WithLoss, BloomForCausalLM_Pipeline
 from model.codegen import CodeGenForCausalLM_WithLoss
 from model.gpt_neox import GPTNeoXForCausalLM_WithLoss
 
@@ -52,10 +52,11 @@ from uie_dataset import gen_cache_path
 
 from uie_trainer import UIETrainer, DenserEvalCallback, skip_instructions
 from compute_metrics import compute_metrics, compute_grouped_metrics
+from deepspeed.pipe import PipelineModule
 
 # off wandb
 os.environ['WANDB_DISABLED'] = "True"
-# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '4,5'
 logger = logging.getLogger(__name__)
 CURRENT_DIR = os.path.dirname(__file__)
 
@@ -327,7 +328,8 @@ def main():
     )
 
     if 'bloom' in model_args.model_name_or_path.lower():
-        model_class = BloomForCausalLM_WithLoss
+        # model_class = BloomForCausalLM_WithLoss
+        model_class = BloomForCausalLM_Pipeline
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = 'left'
@@ -352,6 +354,8 @@ def main():
         use_auth_token=True if model_args.use_auth_token else None,
     )
     model.resize_token_embeddings(len(tokenizer))
+
+    model = PipelineModule(layers=model.to_layers(), num_stages=2)
 
     if (
             hasattr(model.config, "max_position_embeddings")

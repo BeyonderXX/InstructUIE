@@ -8,22 +8,23 @@ port=$(shuf -i25000-30000 -n1)
 
 
 # 3090 * 8 on t5-700M
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port $port src/run_uie.py \
+CUDA_VISIBLE_DEVICES=5,6 deepspeed --master_port $port src/run_uie.py \
    --do_train \
    --do_predict \
    --predict_with_generate \
    --model_name_or_path /root/MODELS/bloomz-560m \
-   --data_dir /workspace/IE_data_v2 \
-   --task_config_dir /workspace/InstructUIE/configs/multi_task_configs \
+   --data_dir /workspace/IE_data_v3 \
+   --task_config_dir /workspace/InstructUIE/configs/debug_configs \
    --instruction_file /workspace/InstructUIE/configs/instruction_config.json \
    --instruction_strategy single \
    --output_dir output/bloomz-560m-ie-single \
    --input_record_file bloomz.record \
-   --per_device_train_batch_size 6 \
+   --per_device_train_batch_size 4 \
    --per_device_eval_batch_size 16 \
    --gradient_accumulation_steps 6 \
+   --gradient_checkpointing True \
    --learning_rate 5e-05 \
-   --num_train_epochs 10 \
+   --num_train_epochs 3 \
    --deepspeed configs/ds_configs/stage0.config \
    --run_name bloomz-560m-mult-test-experiment \
    --max_source_length 512 \
@@ -43,3 +44,5 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed --master_port $port src/run_uie.p
    --evaluation_strategy no \
    --save_strategy steps \
    --save_steps 2000
+
+

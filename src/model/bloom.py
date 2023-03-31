@@ -6,6 +6,7 @@ from torch.nn import CrossEntropyLoss
 from transformers import add_start_docstrings
 from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 from transformers.models.bloom.modeling_bloom import BloomForCausalLM
+from deepspeed.pipe import PipelineModule
 
 class BloomForCausalLM_WithLoss(BloomForCausalLM):
 
@@ -80,3 +81,21 @@ class BloomForCausalLM_WithLoss(BloomForCausalLM):
             hidden_states=transformer_outputs.hidden_states,
             attentions=transformer_outputs.attentions,
         )
+
+
+class BloomForCausalLM_Pipeline(PipelineModule, BloomForCausalLM_WithLoss):
+    def __init__(self, config):
+        super().__init__(config)
+        # BloomForCausalLM_WithLoss.__init__(self, config)
+        PipelineModule.__init__(self, layers=self.to_layers(), num_stages=2)
+
+    # add to_layers to support Pipeline Parallelism
+    def to_layers(self):
+        layers = [
+            *[self.transformer.word_embeddings, self.transformer.word_embeddings_layernorm, self.transformer.h[0:12]],
+            *[self.transformer.h[12:24], self.transformer.ln_f, self.lm_head],
+        ]
+
+        return layers
+
+
