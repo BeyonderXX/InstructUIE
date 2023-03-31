@@ -546,7 +546,7 @@ class EvaluatorNER(EvaluatorBase):
         ]
     def _extract(self, json_data, predict):
         entity_truth = set()
-        for ent in self._resolve_brackets(json_data['Instance']['label']):   # FIXME:字段名可能有变
+        for ent in self._resolve_brackets(json_data['Instance']['ground_truth']):   # FIXME:字段名可能有变
             ent = self._format(ent)
             entity_truth.add(ent)
         
@@ -573,7 +573,7 @@ class EvaluatorRE(EvaluatorBase):
 
     def _extract(self, json_data, predict):
         y_truth = set()
-        for rel in self._resolve_brackets(json_data['Instance']['label']):   # FIXME:字段名可能有变
+        for rel in self._resolve_brackets(json_data['Instance']['ground_truth']):   # FIXME:字段名可能有变
             # type为'no_relation'或'NA'的关系现在不忽略，下同
             rel = self._format(rel)
             y_truth.add(rel)
@@ -599,7 +599,7 @@ class EvaluatorSM(EvaluatorBase):
     def _init_metric(self):
         self.metric = MetricAcc()
     def _extract(self, json_data, predict):
-        y_truth = self._remove_redundant_space(json_data['label'])
+        y_truth = self._remove_redundant_space(json_data['ground_truth'])
         y_pred = self._remove_redundant_space(predict)
         trans_dict = {
             '是': 'Yes',
@@ -618,7 +618,7 @@ class EvaluatorEvent(EvaluatorBase):
         self.metric = MetricAcc()
     def _extract(self, json_data, predict):
         y_truth = set()
-        for event in self._resolve_brackets(json_data['Instance']['label']):   # FIXME:字段名可能有变
+        for event in self._resolve_brackets(json_data['Instance']['ground_truth']):   # FIXME:字段名可能有变
             event = self._format(event)
             event.replace('arguments:', '')
             event_elements = self._resolve_comma(event)  # 因为后面会排序，所以每个pair的规整化需要提前进行
@@ -633,7 +633,7 @@ class EvaluatorEvent(EvaluatorBase):
             event_elements = self._resolve_comma(event)  # 因为后面会排序，所以每个pair的规整化需要提前进行
             
             event_string = ','.join(sorted(event_elements)) # 'a:b,c:d'
-            y_truth.add(event_string)
+            y_pred.add(event_string)
         return y_truth, y_pred
 
 # 因为后来的实际格式与最初表格中的不同，因此下列测试可能无法通过，仅作为使用示例
