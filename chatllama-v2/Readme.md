@@ -1,4 +1,4 @@
-1. 文件说明
+## 文件说明|･ω･`)
 
 ├── alpaca_instructions  
 │   ├── alpaca_instructions.json   *// stanford alpaca使用的5w条指令. 已被转为chatllama所接受的格式*  
@@ -37,33 +37,35 @@
   
 
   
-2. 使用说明  
+## 使用说明(oﾟ▽ﾟ)o  
 
-step1. pip install requirment.txt  
+step1. ```pip install requirment.txt```  
 
 step2. 远程下载数据集和模型. (需在fdn校内或连vpn)
 主机名: 10.176.50.48, 端口号: 49153  
 数据集路径: /root/chatllana/IE_data_v3  
 模型路径: /root/MODELS/7B  
   
-step3. 运行generate.py, 修改参数  
+step3. 运行```generate.py```, 修改参数  
 参数说明均在代码中有详细注释. 输出的数据集格式应为:  
 {"Task": .., "Dataset": .., "user_input": .., "completion": ..}  
 
-step4. 修改chatllama_configs/config_uie.yaml和chatllama_configs/ds_config_llama.json  
-运行CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed main.py chatllama_configs/config_uie.yaml --type ACTOR
-1. config_uie.yaml中, 只需要修改actor_config部分的参数 (line28)
-2. config_uie.yaml中, 可能需要修改的参数为:  
-model_path: 你保存的7B文件夹(llama模型权重及分词器)的路径  
-checkpoint_folder: 训练好的权重保存路径, 请确保该目录存在. 若检测到不存在, 不会自动生成文件夹而是报错  
-tokenizer_folder: tokenizer.model的路径. 虽然写作folder但实际上是文件路径而不是目录路径  
-train_dataset_path: 你将generate.py处理过的训练集存放至的位置
-dev_dataset_path: 你将generate.py处理过的验证集存放至的位置  
-batch_size: 这个要和ds_config_llama.json中的train_micro_batch_size_per_gpu保持一致. 7B建议bs(per gpu)=8, 13B建议bs=16  
-epochs: 训练的轮数  
-deepspeed_config_path: 你的ds_config_llama.json所在的位置
-3. 由于使用deepspeed, 所以学习率实际上在ds_config_llama.json中设置  
-4. config_uie.yaml与ds_config_llama.json的初始参数设置, 参考了stanford alpaca指令微调的超参设置, 即: epoch=3, lr=2e-5, bs=128. 在用alpaca_instructions.json对llama指令微调时，请尽量不要改变超参数
+step4. 修改```chatllama_configs/config_uie.yaml```和```chatllama_configs/ds_config_llama.json```  
+运行```CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 deepspeed main.py chatllama_configs/config_uie.yaml --type ACTOR```  
   
-step5. 训练完成后, 运行inference.py. 具体操作在代码中有详细注释  
+* 如果你的文件目录与上述严格一致, 则不需要修改参数, 直接执行命令即可。如需改变参数, 请参考以下说明∑(っ°Д°;)っ  
+1. ```config_uie.yaml```中, 只需要修改```actor_config```部分的参数 (line28)
+2. ```config_uie.yaml```中, 可能需要修改的参数为:  
+```model_path```: 你保存的7B文件夹(llama模型权重及分词器)的路径  
+```checkpoint_folder```: 训练好的权重保存路径, 请确保该目录存在. 若检测到不存在, 不会自动生成文件夹而是报错  
+```tokenizer_folder```: ```tokenizer.model```的路径. 虽然写作folder但实际上是文件路径而不是目录路径  
+```train_dataset_path```: 你将```generate.py```处理过的训练集存放至的位置
+```dev_dataset_path```: 你将```generate.py```处理过的验证集存放至的位置  
+```batch_size```: 这个要和```ds_config_llama.json```中的```train_micro_batch_size_per_gpu```保持一致. 7B建议bs(per gpu)=8, 13B建议bs=16  
+```epochs```: 训练的轮数  
+```deepspeed_config_path```: 你的```ds_config_llama.json```所在的位置
+3. 由于使用deepspeed, 所以学习率实际上在```ds_config_llama.json```中设置  
+4. ```config_uie.yaml```与```ds_config_llama.json```的默认超参, 设为epoch=5, lr=1e-5, bs=256. bs的计算方法为: ```train_micro_batch_size_per_gpu```*```gradient_accumulation_steps```*gpu数量(默认为8). 如需修改, 请自行调整相应参数┐(´∀｀)┌
+  
+step5. 训练完成后, 运行```inference.py```. 具体操作在代码中有详细注释(˘•ω•˘)  
   
