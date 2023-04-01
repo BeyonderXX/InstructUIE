@@ -1,6 +1,6 @@
 {
     "train_micro_batch_size_per_gpu": 8,
-    "gradient_accumulation_steps": 3,
+    "gradient_accumulation_steps": 4,
     "bfloat16": {
         "enabled": true
     },
