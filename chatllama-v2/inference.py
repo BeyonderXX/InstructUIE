@@ -18,9 +18,9 @@ batch size (arg7, 默认为32)
 # 以上所有的路径名均填写 !!! 绝对路径 !!!
 # 每开一个新进程, 记得设置新的device index, p_index(prediction_file index), from/to_index
 # 如:
-# (pid1) -> CUDA_VISIBLE_DEVICES=0  python #代码路径  "llama_7B"  "llama_7B/tokenizer.model"  "llama_7B/predictions"  0  0  10000  32
-# (pid2) -> CUDA_VISIBLE_DEVICES=1  python #代码路径  "llama_7B"  "llama_7B/tokenizer.model"  "llama_7B/predictions"  1  10000  20000  32
-# (pid3) -> CUDA_VISIBLE_DEVICES=2  python #代码路径  "llama_7B"  "llama_7B/tokenizer.model"  "llama_7B/predictions"  2  20000  30000  32
+# (pid1) -> CUDA_VISIBLE_DEVICES=0  python chatllama-v2/inference.py  "chatllama-v2/7B"  "chatllama-v2/7B/tokenizer.model"  "chatllama-v2/7B/predictions"  0  0  10000  32
+# (pid2) -> CUDA_VISIBLE_DEVICES=1  python chatllama-v2/inference.py  "chatllama-v2/7B"  "chatllama-v2/7B/tokenizer.model"  "chatllama-v2/7B/predictions"  1  10000  20000  32
+# (pid3) -> CUDA_VISIBLE_DEVICES=2  python chatllama-v2/inference.py  "chatllama-v2/7B"  "chatllama-v2/7B/tokenizer.model"  "chatllama-v2/7B/predictions"  2  20000  30000  32
 # ...
 
 import os
