@@ -45,5 +45,5 @@ def calculate_f1(output_dir, tasks=('RE','EE','NER')):
                 print('%48s\t%g'%row)
 
 if __name__ == '__main__':
-    root = '../output/bloomz-1b1-all'
+    root = '../output/flant5-11b-v3'
     calculate_f1(root)

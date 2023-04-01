@@ -287,7 +287,7 @@ class AuditConfuseMatrix(AuditBase):
         if len(s) == 2:
             return s[0], s[1]
         elif len(s) == 3:
-            return '%s,%s'%(s[0],s[1]), s[2]
+            return '%s,%s'%(s[0],s[2]), s[1]
         else:
             return None
     def update(self, last):
