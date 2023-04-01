@@ -59,7 +59,7 @@ def load(ckpt_dir: str, tokenizer_path: str) -> LLaMA:
 
 
 def main(p_index: int, ckpt_dir: str, tokenizer_path: str, output_path: str, from_index: int, to_index: int, batch_size: int, temperature: float = 0.8, top_p: float = 0.95):
-    with open("/root/InstructUIE/run_llama/llama/UIE_text2text/UIE_train_mini_withtask.json", "r", encoding="utf-8") as file: # 数据集绝对路径
+    with open("chatllama-v2/UIE_dataset/UIE_test.json", "r", encoding="utf-8") as file: # 数据集绝对路径
         dataset = json.load(file)
     print(len(dataset)) # 可以先打印看看总数，然后除以GPU数，用来填下一行中每个进程处理的数量
     dataset = dataset[from_index: to_index] 
