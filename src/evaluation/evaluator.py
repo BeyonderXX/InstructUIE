@@ -478,7 +478,7 @@ class EvaluatorBase:
         s = s.replace('{','').replace('}','')
         s = re.sub(',+', ',', s)
         s = re.sub('\.+', '.', s)
-        s.replace('orgnization', 'organization')
+        s = s.replace('orgnization', 'organization')
         return s
     
     @staticmethod
@@ -620,7 +620,7 @@ class EvaluatorEvent(EvaluatorBase):
         y_truth = set()
         for event in self._resolve_brackets(json_data['Instance']['ground_truth']):   # FIXME:字段名可能有变
             event = self._format(event)
-            event.replace('arguments:', '')
+            event = event.replace('arguments:', '')
             event_elements = self._resolve_comma(event)  # 因为后面会排序，所以每个pair的规整化需要提前进行
             
             event_string = ','.join(sorted(event_elements)) # 'a:b,c:d'
@@ -629,7 +629,7 @@ class EvaluatorEvent(EvaluatorBase):
         y_pred = set()
         for event in self._resolve_brackets(predict):
             event = self._format(event)
-            event.replace('arguments:', '')
+            event = event.replace('arguments:', '')
             event_elements = self._resolve_comma(event)  # 因为后面会排序，所以每个pair的规整化需要提前进行
             
             event_string = ','.join(sorted(event_elements)) # 'a:b,c:d'
