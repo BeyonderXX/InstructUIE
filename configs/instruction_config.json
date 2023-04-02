@@ -17,6 +17,18 @@
   "EE": [
     {"instruction_type": "zero-shot", "instruction": "Locate the role in the text that participated in the event based on the event type and return it in the event list. \n"},
     {"instruction_type": "zero-shot", "instruction": "Extract the event information in the text and return them in the event list. \n"}
+  ],
+  "ES": [
+    {"instruction_type": "zero-shot", "instruction": "Please list all entity words in the text that fit the category.Output format is word1, word2. \n"}
+  ],
+  "ET": [
+    {"instruction_type": "zero-shot", "instruction": "Given options, please tell me the categories of all the listed entity words.Output format is (word1, type1), (word2, type2). \n"}
+  ],
+  "EP": [
+    {"instruction_type": "zero-shot", "instruction": "Please list all entity pairs containing a certain relationship in the given options.Output format is (word1, word2). \n"}
+  ],
+  "EPR": [
+    {"instruction_type": "zero-shot", "instruction": "Given options, please tell me the relationships of all the listed entity pairs.Output format is (word1, relation, word2). \n"}
   ]
 }
 
