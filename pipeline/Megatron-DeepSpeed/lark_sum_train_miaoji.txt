@@ -1,1 +1,0 @@
-"train: 1.0 0.95:1 /mnt/bn/larkai-fr-gpt/data_lark/miaoji_inputs/train/lark_sum_train_miaoji"
