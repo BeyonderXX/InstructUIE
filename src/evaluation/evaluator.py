@@ -247,13 +247,13 @@ class AuditRepeat(AuditBase):
         return match is not None
 
 class AuditRetard(AuditBase):
-    "检测零分"
+    "检测二者都非空前提下的错误"
     def _check(self, last) -> bool:
         last_metric = last['metric']
         if hasattr(last_metric, 'last_TP'):
-            return last_metric.last_TP == 0
-        else:
-            return False
+            if len(last['y_pred']) != 0 and len(last['y_truth']) != 0:
+                return last_metric.last_TP == 0
+        return False
         
 class AuditWhatever(AuditBase):
     "无差别逮捕"
