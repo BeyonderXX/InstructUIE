@@ -1,9 +1,9 @@
 {
     "NER": [
-      {"sampling strategy": "random", "dataset name": "conll2003"},
+      {"sampling strategy": "random", "dataset name": "CoNLL 2003"},
       {
             "sampling strategy": "random",
-            "dataset name": "ACE05_coarse-grained"
+            "dataset name": "ACE 2005"
         }
     ]
 }
