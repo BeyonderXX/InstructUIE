@@ -271,8 +271,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
-            instruction = self._get_instruction('NER')
-            instruction += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
+            instruction = "<human>: "+self._get_instruction('NER')
+            instruction += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "<bot>:"
             kv_pairs = []
 
             for entity in instance['entities']:
