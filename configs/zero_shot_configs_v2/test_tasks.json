@@ -1,0 +1,110 @@
+{
+    "RE": [
+        {
+            "sampling strategy": "full",
+            "dataset name": "fewrel_0"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "fewrel_1"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "fewrel_2"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "fewrel_3"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "fewrel_4"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "wiki_0"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "wiki_1"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "wiki_2"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "wiki_3"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "wiki_4"
+        }
+    ],
+    "NER": [
+        {
+            "sampling strategy": "full",
+            "dataset name": "AnatEM"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "bc2gm"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "bc4chemd"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "bc5cdr"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "CrossNER_AI"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "CrossNER_literature"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "CrossNER_music"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "CrossNER_politics"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "CrossNER_science"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "FabNER"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "FindVehicle"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "GENIA_NER"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "HarveyNER"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "mit-movie"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "mit-restaurant"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "ncbi"
+        }
+    ]
+}
