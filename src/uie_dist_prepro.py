@@ -184,9 +184,12 @@ def main():
     if not os.path.exists(args.processed_out_dir):
         os.makedirs(args.processed_out_dir)
 
-    save_json_lines(raw_datasets.train_data(), os.path.join(args.processed_out_dir, 'train.jsonl'))
-    save_json_lines(raw_datasets.dev_data(), os.path.join(args.processed_out_dir, 'dev.jsonl'))
-    save_json_lines(raw_datasets.test_data(), os.path.join(args.processed_out_dir, 'test.jsonl'))
+    save_json_lines(raw_datasets.train_data()[0], os.path.join(args.processed_out_dir, 'train_.jsonl'))
+    save_json_lines(raw_datasets.dev_data()[0], os.path.join(args.processed_out_dir, 'dev_.jsonl'))
+    save_json_lines(raw_datasets.test_data()[0], os.path.join(args.processed_out_dir, 'test_.jsonl'))
+    save_json_lines(raw_datasets.train_data()[1], os.path.join(args.processed_out_dir, 'train.jsonl'))
+    save_json_lines(raw_datasets.dev_data()[1], os.path.join(args.processed_out_dir, 'dev.jsonl'))
+    save_json_lines(raw_datasets.test_data()[1], os.path.join(args.processed_out_dir, 'test.jsonl'))
 
 
 if __name__ == "__main__":

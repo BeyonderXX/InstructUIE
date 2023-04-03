@@ -221,7 +221,6 @@ class UIEInstructDataset:
 
         return instances, labels
 
-    # TODO, combine with _get_instruction
     def get_instruction(self, sentence, instruction_template, task, dataset, labels_str, num_examples=None):
         # "instructions \n options \n {0} \n Answer: "
         instruction_template += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
@@ -234,7 +233,7 @@ class UIEInstructDataset:
         if self.config.add_dataset_name:
             prefix = prefix + "Dataset:" + dataset + '\n'
 
-        instruction_template += prefix
+        instruction_template = prefix + instruction_template
 
         # TODO, add in-context samples
         samples = ''
@@ -277,12 +276,10 @@ class UIEInstructDataset:
     def load_NER_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         instances, labels = self._load_dataset(dataset_path, labels_path)
         # TODO, support few-shot
-        sample_template = {"Task": "NER", "Dataset": dataset_name, "Samples": [], "subset": subset}
         instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
         labels_str = ','.join(labels)
 
         for idx, instance in enumerate(instances):
-            example = sample_template.copy()
             instruction_template = self._get_instruction_template('NER')
             instruction = self.get_instruction(instance['sentence'], instruction_template, 'NER', dataset_name, labels_str)
             kv_pairs = []
@@ -298,26 +295,32 @@ class UIEInstructDataset:
             else:
                 label = "None"
 
-            example["Instance"] = {
-                "input": instruction,
-                "predict": label,
+            example = {
+                "inputs": instruction,
+                "targets": label,
 
+                "Task": "NER",
+                "Dataset": dataset_name,
+                "Samples": [],
+                "subset": subset,
                 "id": str(idx),
                 "sentence": instance['sentence'],
                 "ground_truth": label,
                 "instruction_template": instruction_template
             }
+            model_inputs = {
+                "inputs": instruction,
+                "targets": label
+            }
 
-            yield example
+            yield example, model_inputs
 
     def load_RE_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         instances, labels = self._load_dataset(dataset_path, labels_path)
-        sample_template = {"Task": "RE", "Dataset": dataset_name, "Samples": [], "subset": subset}
         instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
         labels_str = ','.join(labels)
 
         for idx, instance in enumerate(instances):
-            example = sample_template.copy()
             instruction_template = self._get_instruction_template('RE')
             instruction = self.get_instruction(instance['sentence'], instruction_template, 'RE', dataset_name, labels_str)
             relation_pairs = []
@@ -342,28 +345,34 @@ class UIEInstructDataset:
                 logger.error("******Error item: {}******".format(instance))
                 raise Exception('Dataset Error:{}, No ground truth!'.format(dataset_name))
 
-            example["Instance"] = {
-                "input": instruction,
-                "predict": label,
+            example = {
+                "inputs": instruction,
+                "targets": label,
 
+                "Task": "RE",
+                "Dataset": dataset_name,
+                "Samples": [],
+                "subset": subset,
                 "id": str(idx),
                 "sentence": instance['sentence'],
                 "ground_truth": ground_truth,
                 "instruction_template": instruction_template
             }
+            model_inputs = {
+                "inputs": instruction,
+                "targets": label
+            }
 
-            yield example
+            yield example, model_inputs
 
     def load_EE_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         instances, labels = self._load_dataset(dataset_path, labels_path)
-        sample_template = {"Task": "EE", "Dataset": dataset_name, "Samples": [], "subset": subset}
 
         # TODO, reconstruct Event Instruction to two stage
         labels_str = f'Event type: {labels[0]}, Arguments type: {labels[1]}.'
         instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
 
         for idx, instance in enumerate(instances):
-            example = sample_template.copy()
             instruction_template = self._get_instruction_template('EE')
             instruction = self.get_instruction(instance['sentence'], instruction_template, 'EE', dataset_name, labels_str)
             event_pairs = []
@@ -386,24 +395,34 @@ class UIEInstructDataset:
             else:
                 label = 'None'
 
-            example["Instance"] = {
-                "input": instruction,
-                "predict": label,
+            example = {
+                "inputs": instruction,
+                "targets": label,
 
+                "Task": "EE",
+                "Dataset": dataset_name,
+                "Samples": [],
+                "subset": subset,
                 "id": str(idx),
                 "sentence": instance['sentence'],
                 "ground_truth": label,
                 "instruction_template": instruction_template
             }
+            model_inputs = {
+                "inputs": instruction,
+                "targets": label
+            }
 
-            yield example
+            yield example, model_inputs
 
     def _generate_examples(self, path=None, task_config=None, max_num_instances_per_task=None, subset=None):
         """Yields examples."""
         instances = []
+        inputs_instances = []
 
         for task in task_config:
             task_instances = []
+            task_inputs = []
             if task == "NER":
                 load_func = self.load_NER_dataset
             elif task == 'RE':
@@ -424,13 +443,17 @@ class UIEInstructDataset:
 
                 idx = -1
                 dataset_instances = []
-                for sample in load_func(ds_path, labels_path, ds_name, sampling_strategy, max_num_instances_per_task,
-                                        subset):
+                ds_inputs = []
+                for sample, model_inputs in load_func(ds_path, labels_path, ds_name, sampling_strategy,
+                                                      max_num_instances_per_task, subset):
                     idx += 1
                     dataset_instances.append(sample)
+                    ds_inputs.append(model_inputs)
 
                 task_instances.extend(dataset_instances)
+                task_inputs.extend(ds_inputs)
             instances.extend(task_instances)
+            inputs_instances.extend(task_inputs)
 
-        return instances
+        return instances, inputs_instances
 
