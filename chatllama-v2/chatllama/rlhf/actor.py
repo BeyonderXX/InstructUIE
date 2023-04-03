@@ -432,7 +432,7 @@ class ActorTrainer:
                     )
 
                 # save checkpoints
-                steps_per_checkpoint = 50 # setup here
+                steps_per_checkpoint = 2000 # setup here
                 if i % steps_per_checkpoint == 0 and i != 0:
                     print("Saving the checkpoint...")
                     path = os.path.join(
