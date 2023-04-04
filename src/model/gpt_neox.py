@@ -47,7 +47,7 @@ class GPTNeoXForCausalLM_WithLoss(GPTNeoXForCausalLM):
             # we are doing next-token prediction; shift prediction scores and input ids by one
             shift_logits = lm_logits[:, :-1, :].contiguous()
             labels = labels[:, 1:].contiguous()
-            loss = F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1))
+            loss = F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), labels.view(-1),reduction='none')
             if loss_mask != None:
                 loss = loss * loss_mask[..., :-1].contiguous().view(-1)
             loss = loss.sum()/loss_mask.sum()
