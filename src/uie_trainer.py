@@ -279,7 +279,7 @@ class UIETrainer(Seq2SeqTrainer):
         generated_tokens = self.model.generate(
             generation_inputs,
             generation_config=generation_config,
-            eos_token_id=self.tokenizer.convert_tokens_to_ids("human")
+            eos_token_id=self.tokenizer.convert_tokens_to_ids("<human>:")
         )
 
         bs, source_len = inputs['input_ids'].shape
