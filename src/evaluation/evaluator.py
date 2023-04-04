@@ -6,6 +6,7 @@ import re
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import random
 
 class MetricBase:
     def __init__(self):
@@ -133,17 +134,26 @@ class AuditBase:
         # must be overrided
         # return whether be recorded or not
         raise NotImplementedError()
+    def _add_record(self, new_record):
+        self.cnt += 1
+        if self.record_limit < 0 or len(self.record) < self.record_limit:
+            # record limit check
+            self.record.append(new_record)
+        elif os.environ.get('RANDOM_RECORD')=='1':
+            # 流式均匀采样问题
+            if random.randint(1,self.cnt) <= self.record_limit:
+                idx = random.randint(0,len(self.record)-1)
+                self.record[idx] = new_record
     def update(self, last):
         if self._check(last):
-            self.cnt += 1
-            if self.record_limit < 0 or len(self.record) < self.record_limit:
-                # record limit check
-                self.record.append({
-                    'json_data': last['json_data'],
-                    'predict': last['predict'],
-                    'y_truth': list(last['y_truth']),
-                    'y_pred': list(last['y_pred'])
-                })
+            new_record = {
+                'json_data': last['json_data'],
+                'predict': last['predict'],
+                'y_truth': list(last['y_truth']),
+                'y_pred': list(last['y_pred'])
+            }
+            self._add_record(new_record)
+                
     def get_cnt(self):
         return self.cnt
     def get_record(self):
@@ -337,15 +347,13 @@ class AuditConfuseMatrix(AuditBase):
                 self.matrix[idx_truth][idx_pred] += 1
 
         if is_conflict:
-            self.cnt += 1
-            if self.record_limit < 0 or len(self.record) < self.record_limit:
-                # record limit check
-                self.record.append({
-                    'json_data': last['json_data'],
-                    'predict': last['predict'],
-                    'y_truth': list(last['y_truth']),
-                    'y_pred': list(last['y_pred'])
-                })
+            new_record = {
+                'json_data': last['json_data'],
+                'predict': last['predict'],
+                'y_truth': list(last['y_truth']),
+                'y_pred': list(last['y_pred'])
+            }
+            self._add_record(new_record)
 
     def get_report(self):
         root = 'img'    # 虽然硬编码是坏行为，但这是生成只写的临时数据，该数据只会被用户阅读，不会被程序读取。
