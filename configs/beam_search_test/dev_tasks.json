@@ -1,0 +1,18 @@
+{
+    "RE": [
+        {
+            "sampling strategy": "full",
+            "dataset name": "NYT11"
+        }
+    ],
+    "NER": [
+        {
+            "sampling strategy": "full",
+            "dataset name": "ACE 2005"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "CoNLL 2003"
+        }
+    ]
+}

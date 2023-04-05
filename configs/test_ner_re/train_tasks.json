@@ -1,0 +1,18 @@
+{
+    "RE": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "NYT11"
+        }
+    ],
+    "NER": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "ACE 2005"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "CoNLL 2003"
+        }
+    ]
+}

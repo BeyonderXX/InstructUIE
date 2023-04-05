@@ -1,0 +1,12 @@
+{
+    "EE": [
+        {
+            "sampling strategy": "full",
+            "dataset name": "GENIA"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "PHEE"
+        }
+    ]
+}

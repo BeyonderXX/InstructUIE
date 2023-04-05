@@ -1,0 +1,8 @@
+{
+    "NER": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "bc2gm"
+        }
+    ]
+}
