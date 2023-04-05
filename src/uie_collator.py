@@ -73,10 +73,12 @@ class DataCollatorForUIE:
             raise Exception('Few shot is coming soon...')
         if samples:
             content = samples + content
+        # TODO, fix bug
+        try:
+            instruction = instruction.format(content)
+        finally:
+            return instruction
 
-        instruction = instruction.format(content)
-
-        return instruction
 
     def seq2seq_call(self, batch, return_tensors):
         sources = []
