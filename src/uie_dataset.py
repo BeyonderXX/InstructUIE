@@ -436,7 +436,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 relation_pairs.append(relation_pair)
                 entity_pairs.append(entity_pair)
 
-            ep_name = ", ".join(["({}, {})".format(h, t) for (h, t) in entity_pairs])
+            ep_name = ",".join([" ( {}, {})".format(h, t) for (h, t) in entity_pairs])
             instruction += " Entity Pairs: " + ep_name + " \nOption: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
 
             if len(relation_pairs) > 0:
