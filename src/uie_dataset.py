@@ -296,6 +296,170 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
             yield example
 
+    def load_ES_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
+        # ES = Entity Span
+        instances, labels = self._load_dataset(dataset_path, labels_path)
+        # TODO, support few-shot
+        sample_template = {"Task": "ES", "Dataset": dataset_name, "Samples": [], "subset": subset}
+
+        labels_str = ','.join(labels)
+        instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
+
+        for idx, instance in enumerate(instances):
+            example = sample_template.copy()
+            instruction = self._get_instruction('ES')
+            instruction += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
+            entities = []
+
+            for entity in instance['entities']:
+                entities.append(entity["name"])
+
+            if len(entities) > 0:
+                label = ", ".join([entity_name for entity_name in entities])
+            else:
+                label = "None"
+
+            example["Instance"] = {
+                "id": str(idx),
+                "sentence": instance['sentence'],
+                "label": label,
+                "ground_truth": label,
+                "instruction": instruction
+            }
+
+            yield example
+
+    def load_ET_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
+        # ET = Entity Type
+        instances, labels = self._load_dataset(dataset_path, labels_path)
+        # TODO, support few-shot
+        sample_template = {"Task": "ET", "Dataset": dataset_name, "Samples": [], "subset": subset}
+
+        labels_str = ','.join(labels)
+        instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
+
+        for idx, instance in enumerate(instances):
+            example = sample_template.copy()
+            instruction = self._get_instruction('ET')
+            entities = []
+            kv_pairs = []
+
+            for entity in instance['entities']:
+                if entity['type'] == 'NA' or entity['type'] == '':
+                    continue
+                kv_pair = [entity['name'], entity['type']]
+                kv_pairs.append(kv_pair)
+                entities.append(entity["name"])
+
+            entities_str = ",".join([entity_name for entity_name in entities])
+            instruction += "Entities:" + entities_str + "\nOption:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
+
+            if len(kv_pairs) > 0:
+                label = ", ".join(["({}, {})".format(k, v) for (k, v) in kv_pairs])
+            else:
+                label = "None"
+
+            example["Instance"] = {
+                "id": str(idx),
+                "sentence": instance['sentence'],
+                "label": label,
+                "ground_truth": label,
+                "instruction": instruction
+            }
+
+            yield example
+
+    def load_EP_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
+        # EP = Entity Pair
+        instances, labels = self._load_dataset(dataset_path, labels_path)
+        sample_template = {"Task": "EP", "Dataset": dataset_name, "Samples": [], "subset": subset}
+
+        labels_str = ','.join(labels)
+        instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
+
+        for idx, instance in enumerate(instances):
+            example = sample_template.copy()
+            instruction = self._get_instruction('EP')
+            instruction += "Option:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
+            relation_pairs = []
+            ground_truth_pairs = []
+
+            for relation in instance['relations']:
+                if relation['type'] == 'NA' or relation['type'] == '':
+                    continue
+                relation_pair = [relation['head']['name'], relation['tail']['name']]
+                ground_truth_pairs.append(relation_pair)
+                relation_pairs.append(relation_pair)
+
+            if len(relation_pairs) > 0:
+                label = ", ".join(["({}, {})".format(h, t) for (h, t) in relation_pairs])
+            else:
+                label = 'None'
+
+            if len(ground_truth_pairs) > 0:
+                ground_truth = ", ".join(["({}, {})".format(h, t) for (h, t) in ground_truth_pairs])
+            else:
+                ground_truth = 'None'
+
+            example["Instance"] = {
+                "id": str(idx),
+                "sentence": instance['sentence'],
+                "label": label,
+                "ground_truth": ground_truth,
+                "instruction": instruction
+            }
+
+            yield example
+
+    def load_EPR_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
+        # EPR = Entity Pair Relationship
+        instances, labels = self._load_dataset(dataset_path, labels_path)
+        sample_template = {"Task": "EPR", "Dataset": dataset_name, "Samples": [], "subset": subset}
+
+        labels_str = ','.join(labels)
+        instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
+
+        for idx, instance in enumerate(instances):
+            example = sample_template.copy()
+            instruction = self._get_instruction('EPR')
+            relation_pairs = []
+            entity_pairs = []
+            ground_truth_pairs = []
+
+            for relation in instance['relations']:
+                if relation['type'] == 'NA' or relation['type'] == '':
+                    ground_truth_pairs.append([relation['head']['name'], 'NA', relation['tail']['name']])
+                    continue
+                relation_pair = [relation['head']['name'], relation['type'], relation['tail']['name']]
+                entity_pair = [relation['head']['name'], relation['tail']['name']]
+                ground_truth_pairs.append(relation_pair)
+                relation_pairs.append(relation_pair)
+                entity_pairs.append(entity_pair)
+
+            ep_name = ", ".join(["({}, {})".format(h, t) for (h, t) in entity_pairs])
+            instruction += "Entity Pairs: " + ep_name + "\nOption:" + labels_str + " \n" + "Text: " + "{0}" + "\n" + "Answer:"
+            
+            if len(relation_pairs) > 0:
+                label = ", ".join(["({}, {}, {})".format(h, r, t) for (h, r, t) in relation_pairs])
+            else:
+                label = 'None'
+
+            if len(ground_truth_pairs) > 0:
+                ground_truth = ", ".join(["({}, {}, {})".format(h, r, t) for (h, r, t) in ground_truth_pairs])
+            else:
+                logger.error("******Error item: {}******".format(instance))
+                raise Exception('Dataset Error:{}, No ground truth!'.format(dataset_name))
+
+            example["Instance"] = {
+                "id": str(idx),
+                "sentence": instance['sentence'],
+                "label": label,
+                "ground_truth": ground_truth,
+                "instruction": instruction
+            }
+
+            yield example            
+           
     def load_RE_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         instances, labels = self._load_dataset(dataset_path, labels_path)
         sample_template = {"Task": "RE", "Dataset": dataset_name, "Samples": [], "subset": subset}
@@ -396,6 +560,14 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 load_func = self.load_RE_dataset
             elif task == 'EE':
                 load_func = self.load_EE_dataset
+            elif task == 'ES':
+                load_func = self.load_ES_dataset
+            elif task == 'ET':
+                load_func = self.load_ET_dataset
+            elif task == 'EP':
+                load_func = self.load_EP_dataset
+            elif task == 'EPR':
+                load_func = self.load_EPR_dataset
             else:
                 raise ValueError("Unsupport {} task, plz check {} task config!".format(task, subset))
 

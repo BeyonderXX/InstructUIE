@@ -1,14 +1,4 @@
 {
-    "EE": [
-        {
-            "sampling strategy": "random",
-            "dataset name": "GENIA"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "PHEE"
-        }
-    ],
     "RE": [
         {
             "sampling strategy": "random",
@@ -50,22 +40,6 @@
         },
         {
             "sampling strategy": "random",
-            "dataset name": "AnatEM"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "bc2gm"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "bc4chemd"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "bc5cdr"
-        },
-        {
-            "sampling strategy": "random",
             "dataset name": "Broad Tweet Corpus"
         },
         {
@@ -74,35 +48,7 @@
         },
         {
             "sampling strategy": "random",
-            "dataset name": "FabNER"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "FindVehicle"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "GENIA_NER"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "HarveyNER"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "mit-movie"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "mit-restaurant"
-        },
-        {
-            "sampling strategy": "random",
             "dataset name": "MultiNERD"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "ncbi"
         },
         {
             "sampling strategy": "random",

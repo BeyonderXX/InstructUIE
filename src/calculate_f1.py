@@ -44,6 +44,8 @@ def calculate_f1(output_dir, tasks=('RE','EE','NER')):
                 f.write(f'{row[0]}\t{row[1]}\n')
                 print('%48s\t%g'%row)
 
+
 if __name__ == '__main__':
     root = '../output/flant5-11b-v3'
+    os.environ['RANDOM_RECORD'] = '1'   # 1:开启随机记录; 0:关闭随机记录
     calculate_f1(root)
