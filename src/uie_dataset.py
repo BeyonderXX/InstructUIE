@@ -27,6 +27,7 @@ TASK_CONFIG_FILES = {"train": "train_tasks.json", "dev": "dev_tasks.json", "test
 INSTRUCTION_STRATEGIES = ['single', 'multiple']
 ANSWER_PREFIX = "Answer:"
 SINGLE_QUOTES_SUBSTITUTE = "#$%#"
+AUX_PROB = 0.3
 
 
 def gen_cache_path(cache_dir, data_args):
@@ -327,7 +328,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 "instruction": instruction
             }
 
-            yield example
+            if random.random() < AUX_PROB:
+                yield example
 
     def load_ET_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         # ET = Entity Type
@@ -367,7 +369,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 "instruction": instruction
             }
 
-            yield example
+            if random.random() < AUX_PROB:
+                yield example
 
     def load_EP_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         # EP = Entity Pair
@@ -409,7 +412,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 "instruction": instruction
             }
 
-            yield example
+            if random.random() < AUX_PROB:
+                yield example
 
     def load_EPR_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         # EPR = Entity Pair Relationship
@@ -458,7 +462,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 "instruction": instruction
             }
 
-            yield example
+            if random.random() < AUX_PROB:
+                yield example
 
     def load_RE_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         instances, labels = self._load_dataset(dataset_path, labels_path)
