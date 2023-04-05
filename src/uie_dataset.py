@@ -560,6 +560,14 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 load_func = self.load_RE_dataset
             elif task == 'EE':
                 load_func = self.load_EE_dataset
+            elif task == 'ES':
+                load_func = self.load_ES_dataset
+            elif task == 'ET':
+                load_func = self.load_ET_dataset
+            elif task == 'EP':
+                load_func = self.load_EP_dataset
+            elif task == 'EPR':
+                load_func = self.load_EPR_dataset
             else:
                 raise ValueError("Unsupport {} task, plz check {} task config!".format(task, subset))
 
