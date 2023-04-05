@@ -229,6 +229,7 @@ class DataTrainingArguments:
 
 @dataclass
 class UIETrainingArguments(Seq2SeqTrainingArguments):
+
     gradient_checkpointing: Optional[bool] = field(
         default=False,
         metadata={"help": "Whether to use computing time to gain more memory"}
@@ -447,7 +448,8 @@ def main():
     print(f"-----Gradient checkpointing: {training_args.gradient_checkpointing} -----")
     if training_args.gradient_checkpointing:
         model.gradient_checkpointing_enable()
-    
+        training_args.use_cache = False
+    model.tokenizer = tokenizer
     trainer = UIETrainer(
         model=model,
         args=training_args,
@@ -508,6 +510,7 @@ def main():
         # without last ckpt and resume ckpt, would predict with current model
         if checkpoint:
             model = model_class.from_pretrained(checkpoint)
+            model.tokenizer = tokenizer
             trainer = UIETrainer(
                 model=model,
                 args=training_args,
