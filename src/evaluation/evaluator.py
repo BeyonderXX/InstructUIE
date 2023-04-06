@@ -208,11 +208,11 @@ class AuditNA(AuditBase):
 class AuditInvalid(AuditBase):
     "检测包含非法标签类型的输出，目前只用于RE和NER"
     def _check(self, last) -> bool:
-        valid_labels = re.findall('Option:(.+?)\n', last['json_data']['Instance']['instruction'])
+        valid_labels = EvaluatorBase._resolve_option(last['json_data']['Instance']['instruction'])
         if len(valid_labels) == 0:
             # 如果是没有提供option，则忽略该审计项
             return False
-        valid_labels = set(valid_labels[0].strip().split(','))
+        valid_labels = set(valid_labels)
 
         for pred in last['y_pred']:
             pred = pred.split(',')
@@ -303,8 +303,7 @@ class AuditConfuseMatrix(AuditBase):
     def update(self, last):
         if self.dataset_name is None:
             self.dataset_name = last['json_data']['Dataset']
-            self.options = re.findall('Option:(.+?)\n', last['json_data']['Instance']['instruction'])[0].split(',')
-            self.options = [EvaluatorBase._format(s) for s in self.options]
+            self.options = EvaluatorBase._resolve_option(last['json_data']['Instance']['instruction'])
             if 'na' not in self.options:
                 self.options.append('na')
             self.options2idx = dict()
@@ -469,6 +468,16 @@ class EvaluatorBase:
     def dump_audit_report(self, fpath):
         with open(fpath, 'w', encoding='utf-8') as f:
             json.dump(self.get_audit_report(), f, indent=4)
+    
+    @staticmethod
+    def _resolve_option(s):
+        "s: instruction"
+        option_parts = re.findall('Option:(.+?)\n', s)
+        if len(option_parts) <= 0:
+            return []
+        option_part = option_parts[0]
+        ans = [EvaluatorBase._format(x) for x in option_part.split(',')]
+        return ans
 
     @staticmethod
     def _remove_redundant_space(s):
