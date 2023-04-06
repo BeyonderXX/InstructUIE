@@ -1,5 +1,48 @@
 {
-      "NER": [
-        {"sampling strategy": "random", "dataset name": "conll2003"}
-      ]
+    "EE": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "GENIA"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "PHEE"
+        }
+    ],
+    "EP": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "ADE_corpus"
+        }
+    ],
+    "EPR": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "ADE_corpus"
+        }
+    ],
+    "RE": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "ADE_corpus"
+        }
+    ],
+    "NER": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "ACE 2005"
+        }
+    ],
+    "ES": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "ACE 2005"
+        }
+    ],
+    "ET": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "ACE 2005"
+        }
+    ]
 }
