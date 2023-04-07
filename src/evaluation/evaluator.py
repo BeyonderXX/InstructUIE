@@ -483,18 +483,19 @@ class EvaluatorBase:
     def _remove_redundant_space(s):
         # '   a  b  \t  c  \n' --> 'a b c'
         #'  kjc,  jns , ((  : ()  )  ( . )( ln  kc  a,,  ' --> 'kjc,jns,((:())(.)(ln kc a,,'
-        s = ' '.join(s.split())
-        s = re.sub(r'\s*(,|:|\(|\)|\.|_)\s*', r'\1', s)
+        s = ' '.join(s.split())     # 多个空白字符变为单个空格
+        s = re.sub(r'\s*(,|:|\(|\)|\.|_|;)\s*', r'\1', s)   #去除特殊符号旁的空白字符
         return s
     
     @staticmethod
     def _format(s):
-        # 集大成的格式规范化，集中解决各种格式的疑难杂症
+        "集大成的格式规范化，集中解决各种格式的疑难杂症"
         s = EvaluatorBase._remove_redundant_space(s)
         s = s.lower()
         s = s.replace('{','').replace('}','')
         s = re.sub(',+', ',', s)
         s = re.sub('\.+', '.', s)
+        s = re.sub(';+', ';', s)
         s = s.replace('orgnization', 'organization')
         return s
     
@@ -562,13 +563,14 @@ class EvaluatorNER(EvaluatorBase):
             AuditConfuseMatrix()
         ]
     def _extract(self, json_data, predict):
+        # person: a; person: b; org: c
         entity_truth = set()
-        for ent in self._resolve_brackets(json_data['Instance']['ground_truth']):   # FIXME:字段名可能有变
+        for ent in self._format(json_data['Instance']['ground_truth']).split(';'):
             ent = self._format(ent)
             entity_truth.add(ent)
         
         entity_pred = set()
-        for ent in self._resolve_brackets(predict):
+        for ent in self._format(predict).split(';'):
             # 部分地名可能会包含逗号，因此这里不检查逗号个数
             ent = self._format(ent)
             entity_pred.add(ent)
@@ -590,17 +592,26 @@ class EvaluatorRE(EvaluatorBase):
 
     def _extract(self, json_data, predict):
         y_truth = set()
-        for rel in self._resolve_brackets(json_data['Instance']['ground_truth']):   # FIXME:字段名可能有变
+        pattern = r'(?:head entity:)(.+?)(?:\s*,\s*)+(?:tail entity:)(.+?)(?:\s*,\s*)+(?:relation:)(.+?)(?:\s*,\s*)*$'
+        for rel in self._format(json_data['Instance']['ground_truth']).split(';'):   # FIXME:字段名可能有变
             # type为'no_relation'或'NA'的关系现在不忽略，下同
-            rel = self._format(rel)
-            y_truth.add(rel)
+            elem = re.findall(pattern, rel)
+            if len(elem) == 0:
+                continue
+            elem = ','.join(self._format(i) for i in elem[0])
+            elem = self._format(elem)
+            y_truth.add(elem)
 
         y_pred = set()
         # 如果模型输出'no relation'或'[]'，则认为其预测的关系集合为空集，但这里并不需要做特殊判别
-        for rel in self._resolve_brackets(predict):
+        for rel in self._format(predict).split(';'):
             # 因为字段中可能本身就存在逗号，此处不再进行数量校验
-            rel = self._format(rel)
-            y_pred.add(rel)
+            elem = re.findall(pattern, rel)
+            if len(elem) == 0:
+                continue
+            elem = ','.join(self._format(i) for i in elem[0])
+            elem = self._format(elem)       # 没有一个format解决不了的问题，如果有，就多加几个
+            y_pred.add(elem)
         return y_truth, y_pred
 
 class EvaluatorMRC(EvaluatorBase):
