@@ -1,109 +1,109 @@
 {
     "RE": [
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "fewrel_0"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "fewrel_1"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "fewrel_2"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "fewrel_3"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "fewrel_4"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "wiki_0"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "wiki_1"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "wiki_2"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "wiki_3"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "wiki_4"
         }
     ],
     "NER": [
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "AnatEM"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "bc2gm"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "bc4chemd"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "bc5cdr"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "CrossNER_AI"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "CrossNER_literature"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "CrossNER_music"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "CrossNER_politics"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "CrossNER_science"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "FabNER"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "FindVehicle"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "GENIA_NER"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "HarveyNER"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "mit-movie"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "mit-restaurant"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "ncbi"
         }
     ]
