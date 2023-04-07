@@ -2,109 +2,73 @@
     "RE": [
         {
             "sampling strategy": "random",
-            "dataset name": "fewrel_0"
+            "dataset name": "ADE_corpus"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "fewrel_1"
+            "dataset name": "NYT11"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "fewrel_2"
+            "dataset name": "New-York-Times-RE"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "fewrel_3"
+            "dataset name": "semval-RE"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "fewrel_4"
+            "dataset name": "conll04"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "wiki_0"
+            "dataset name": "GIDS"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "wiki_1"
+            "dataset name": "SciERC"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "wiki_2"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "wiki_3"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "wiki_4"
+            "dataset name": "kbp37"
         }
     ],
     "NER": [
         {
             "sampling strategy": "random",
-            "dataset name": "AnatEM"
+            "dataset name": "ACE 2005"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "bc2gm"
+            "dataset name": "Broad Tweet Corpus"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "bc4chemd"
+            "dataset name": "CoNLL 2003"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "bc5cdr"
+            "dataset name": "MultiNERD"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "CrossNER_AI"
+            "dataset name": "Ontonotes"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "CrossNER_literature"
+            "dataset name": "PolyglotNER"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "CrossNER_music"
+            "dataset name": "TweetNER7"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "CrossNER_politics"
+            "dataset name": "WikiANN en"
         },
         {
             "sampling strategy": "random",
-            "dataset name": "CrossNER_science"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "FabNER"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "FindVehicle"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "GENIA_NER"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "HarveyNER"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "mit-movie"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "mit-restaurant"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "ncbi"
+            "dataset name": "WikiNeural"
         }
     ]
 }
