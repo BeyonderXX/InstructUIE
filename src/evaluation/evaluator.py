@@ -485,7 +485,7 @@ class EvaluatorBase:
         # '   a  b  \t  c  \n' --> 'a b c'
         #'  kjc,  jns , ((  : ()  )  ( . )( ln  kc  a,,  ' --> 'kjc,jns,((:())(.)(ln kc a,,'
         s = ' '.join(s.split())
-        s = re.sub(r'\s*(,|:|\(|\)|\.|_)\s*', r'\1', s)
+        s = re.sub(r"\s*(,|:|\(|\)|\.|_|;|'|-)\s*", r'\1', s)   #去除特殊符号旁的空白字符
         return s
     
     @staticmethod
