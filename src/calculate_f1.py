@@ -45,6 +45,7 @@ def calculate_f1(output_dir, tasks=('RE','EE','NER')):
                 print('%48s\t%g'%row)
 
 if __name__ == '__main__':
-    root = '../output/flant5-11b-v3'
-    os.environ['RANDOM_RECORD'] = '1'   # 1:开启随机记录; 0:关闭随机记录
+    root = '../output/davinc'
+    os.environ['RANDOM_RECORD'] = '1'   # 是否开启随机记录
+    os.environ['EXPORT_IMG'] = '0'      # 是否导出混淆矩阵图片
     calculate_f1(root)

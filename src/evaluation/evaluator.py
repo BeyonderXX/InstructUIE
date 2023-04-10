@@ -355,19 +355,20 @@ class AuditConfuseMatrix(AuditBase):
             self._add_record(new_record)
 
     def get_report(self):
-        root = 'img'    # 虽然硬编码是坏行为，但这是生成只写的临时数据，该数据只会被用户阅读，不会被程序读取。
-        if not os.path.exists(root):
-            os.mkdir(root)
-        fpath = os.path.join(root, '%s.png'%self.dataset_name)
-        if True:
-            # 大部分时候并不关心主对角线和na上的元素，mask掉减少视觉干扰
-            matrix = ((1-np.eye(self.matrix.shape[0])) * self.matrix).astype(np.int16)    
-            na = self.options2idx['na']
-            matrix[na,:]=0
-            matrix[:,na]=0
-        else:
-            matrix = self.matrix
-        self._plot_matrix(matrix, self.options, fpath, title=self.dataset_name)
+        if os.environ.get('EXPORT_IMG') == '1':
+            root = 'img'    # 虽然硬编码是坏行为，但这是生成只写的临时数据，该数据只会被用户阅读，不会被程序读取。
+            if not os.path.exists(root):
+                os.mkdir(root)
+            fpath = os.path.join(root, '%s.png'%self.dataset_name)
+            if True:
+                # 大部分时候并不关心主对角线和na上的元素，mask掉减少视觉干扰
+                matrix = ((1-np.eye(self.matrix.shape[0])) * self.matrix).astype(np.int16)    
+                na = self.options2idx['na']
+                matrix[na,:]=0
+                matrix[:,na]=0
+            else:
+                matrix = self.matrix
+            self._plot_matrix(matrix, self.options, fpath, title=self.dataset_name)
         return super().get_report()
     @staticmethod
     def _plot_matrix(A, labels, fpath, title=None, min_size = 50):
@@ -484,7 +485,7 @@ class EvaluatorBase:
         # '   a  b  \t  c  \n' --> 'a b c'
         #'  kjc,  jns , ((  : ()  )  ( . )( ln  kc  a,,  ' --> 'kjc,jns,((:())(.)(ln kc a,,'
         s = ' '.join(s.split())
-        s = re.sub(r'\s*(,|:|\(|\)|\.|_)\s*', r'\1', s)
+        s = re.sub(r"\s*(,|:|\(|\)|\.|_|;|'|-)\s*", r'\1', s)   #去除特殊符号旁的空白字符
         return s
     
     @staticmethod
