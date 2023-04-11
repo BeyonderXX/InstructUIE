@@ -10,9 +10,9 @@
     {"instruction_type": "zero-shot", "instruction": "Find the relationship between {0} and {1} in text from following options? \n"}
   ],
   "NER": [
-    {"instruction_type": "zero-shot", "instruction": "Please list all entity words in the text that fit the category.Output format is type: word1, word2. \n"},
-    {"instruction_type": "zero-shot", "instruction": "Please find all the entity words associated with the category in the given text.Output format is type: word1, word2. \n"},
-    {"instruction_type": "zero-shot", "instruction": "Please tell me all the entity words in the text that belong to a given category.Output format is type: word1, word2. \n"}
+    {"instruction_type": "zero-shot", "instruction": "Please list all entity words in the text that fit the category.Output format is type1: word1; type2: word2. \n"},
+    {"instruction_type": "zero-shot", "instruction": "Please find all the entity words associated with the category in the given text.Output format is type1: word1; type2: word2. \n"},
+    {"instruction_type": "zero-shot", "instruction": "Please tell me all the entity words in the text that belong to a given category.Output format is type1: word1; type2: word2. \n"}
   ],
   "EE": [
     {"instruction_type": "zero-shot", "instruction": "Locate the role in the text that participated in the event based on the event type and return it in the event list. \n"},
