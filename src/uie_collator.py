@@ -222,6 +222,6 @@ class DataCollatorForUIE:
                     f.write(mask_label+'\n\n')
         else:
             with open(self.input_record_file, 'a+', encoding='utf-8') as f:
-                for text, label in zip(sources, labels):
+                for text, label in zip(sources, labels['input_ids']):
                     f.write(text + '\n')
-                    f.write(label + '\n')
+                    f.write(self.tokenizer.decode(label, clean_up_tokenization_spaces=False) + '\n')

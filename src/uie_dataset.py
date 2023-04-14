@@ -264,7 +264,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
     def load_NER_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         instances, labels = self._load_dataset(dataset_path, labels_path)
-        # TODO, support few-shot
+
         sample_template = {"Task": "NER", "Dataset": dataset_name, "Samples": [], "subset": subset}
 
         labels_str = ', '.join(labels)
@@ -273,7 +273,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('NER')
-            instruction += " Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
+            instruction += "Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
             kv_pairs = []
 
             for entity in instance['entities']:
@@ -282,10 +282,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 kv_pair = [entity['name'], entity['type']]
                 kv_pairs.append(kv_pair)
 
-#             if len(kv_pairs) > 0:
-#                 label = ",".join([" ( {}, {})".format(k, v) for (k, v) in kv_pairs])
             if len(kv_pairs) > 0:
-                label = "; ".join(["{}: {}".format(v, k) for (k, v) in kv_pairs])
+                label = " " + "; ".join(["{}: {}".format(v, k) for (k, v) in kv_pairs])
             else:
                 label = " None"
 
@@ -302,7 +300,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
     def load_ES_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         # ES = Entity Span
         instances, labels = self._load_dataset(dataset_path, labels_path)
-        # TODO, support few-shot
+
         sample_template = {"Task": "ES", "Dataset": dataset_name, "Samples": [], "subset": subset}
 
         labels_str = ', '.join(labels)
@@ -311,14 +309,14 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('ES')
-            instruction += " Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
+            instruction += "Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
             entities = []
 
             for entity in instance['entities']:
                 entities.append(entity["name"])
 
             if len(entities) > 0:
-                label = " "+", ".join([entity_name for entity_name in entities])
+                label = " " + ", ".join([entity_name for entity_name in entities])
             else:
                 label = " None"
 
@@ -336,7 +334,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
     def load_ET_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         # ET = Entity Type
         instances, labels = self._load_dataset(dataset_path, labels_path)
-        # TODO, support few-shot
+
         sample_template = {"Task": "ET", "Dataset": dataset_name, "Samples": [], "subset": subset}
 
         labels_str = ', '.join(labels)
@@ -355,11 +353,11 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 kv_pairs.append(kv_pair)
                 entities.append(entity["name"])
 
-            entities_str = ",".join([entity_name for entity_name in entities])
-            instruction += " Entities: " + entities_str + " \nOption: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
+            entities_str = ", ".join([entity_name for entity_name in entities])
+            instruction += "Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + " Entities: " + entities_str + " \n" + "Answer:"
 
             if len(kv_pairs) > 0:
-                label = ",".join([" ( {}, {})".format(k, v) for (k, v) in kv_pairs])
+                label = " " + "; ".join(["{}: {}".format(v, k) for (k, v) in kv_pairs])
             else:
                 label = " None"
 
@@ -385,7 +383,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('EP')
-            instruction += " Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
+            instruction += "Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
             relation_pairs = []
             ground_truth_pairs = []
 
@@ -397,12 +395,12 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 relation_pairs.append(relation_pair)
 
             if len(relation_pairs) > 0:
-                label = ",".join([" ( {}, {})".format(h, t) for (h, t) in relation_pairs])
+                label = " " + "; ".join(["{}, {}".format(h, t) for (h, t) in relation_pairs])
             else:
                 label = ' None'
 
             if len(ground_truth_pairs) > 0:
-                ground_truth = ",".join([" ( {}, {})".format(h, t) for (h, t) in ground_truth_pairs])
+                ground_truth = " " + "; ".join(["{}, {}".format(h, t) for (h, t) in ground_truth_pairs])
             else:
                 ground_truth = ' None'
 
@@ -442,16 +440,16 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 relation_pairs.append(relation_pair)
                 entity_pairs.append(entity_pair)
 
-            ep_name = ",".join([" ( {}, {})".format(h, t) for (h, t) in entity_pairs])
-            instruction += " Entity Pairs: " + ep_name + " \nOption: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
+            ep_name = ' ' + "; ".join(["{}, {}".format(h, t) for (h, t) in entity_pairs])
+            instruction += "Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + " Entity Pairs: " + ep_name + ' \n' + "Answer:"
 
             if len(relation_pairs) > 0:
-                label = ",".join([" ( {}, {}, {})".format(h, r, t) for (h, r, t) in relation_pairs])
+                label = ' ' + "; ".join(["{}: {}, {}".format(r, h, t) for (h, r, t) in relation_pairs])
             else:
                 label = ' None'
 
             if len(ground_truth_pairs) > 0:
-                ground_truth = ",".join([" ( {}, {}, {})".format(h, r, t) for (h, r, t) in ground_truth_pairs])
+                ground_truth = ' ' + "; ".join(["{}: {}, {}".format(r, h, t) for (h, r, t) in ground_truth_pairs])
             else:
                 logger.error("******Error item: {}******".format(instance))
                 raise Exception('Dataset Error:{}, No ground truth!'.format(dataset_name))
@@ -477,7 +475,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('RE')
-            instruction += " Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
+            instruction += "Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
             relation_pairs = []
             ground_truth_pairs = []
 
@@ -489,15 +487,13 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 ground_truth_pairs.append(relation_pair)
                 relation_pairs.append(relation_pair)
 
-#             if len(relation_pairs) > 0:
-#                 label = ",".join([" ( {}, {}, {})".format(h, r, t) for (h, r, t) in relation_pairs])
             if len(relation_pairs) > 0:
-                label = "; ".join("{}: {}, {}".format(r, h, t) for (h, r, t) in relation_pairs)
+                label = ' ' + "; ".join("{}: {}, {}".format(r, h, t) for (h, r, t) in relation_pairs)
             else:
                 label = ' None'
 
             if len(ground_truth_pairs) > 0:
-                ground_truth = "; ".join("{}: {}, {}".format(r, h, t) for (h, r, t) in ground_truth_pairs)
+                ground_truth = ' ' + "; ".join("{}: {}, {}".format(r, h, t) for (h, r, t) in ground_truth_pairs)
             else:
                 logger.error("******Error item: {}******".format(instance))
                 raise Exception('Dataset Error:{}, No ground truth!'.format(dataset_name))
@@ -524,7 +520,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('EE')
-            instruction += " Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
+            instruction += "Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
             event_pairs = []
 
             for k, event in enumerate(instance['events']):
