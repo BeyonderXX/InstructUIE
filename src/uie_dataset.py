@@ -282,8 +282,10 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 kv_pair = [entity['name'], entity['type']]
                 kv_pairs.append(kv_pair)
 
+#             if len(kv_pairs) > 0:
+#                 label = ",".join([" ( {}, {})".format(k, v) for (k, v) in kv_pairs])
             if len(kv_pairs) > 0:
-                label = ",".join([" ( {}, {})".format(k, v) for (k, v) in kv_pairs])
+                label = "; ".join(["{}: {}".format(v, k) for (k, v) in kv_pairs])
             else:
                 label = " None"
 
@@ -487,13 +489,15 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 ground_truth_pairs.append(relation_pair)
                 relation_pairs.append(relation_pair)
 
+#             if len(relation_pairs) > 0:
+#                 label = ",".join([" ( {}, {}, {})".format(h, r, t) for (h, r, t) in relation_pairs])
             if len(relation_pairs) > 0:
-                label = ",".join([" ( {}, {}, {})".format(h, r, t) for (h, r, t) in relation_pairs])
+                label = "; ".join("{}: {}, {}".format(r, h, t) for (h, r, t) in relation_pairs)
             else:
                 label = ' None'
 
             if len(ground_truth_pairs) > 0:
-                ground_truth = ",".join([" ( {}, {}, {})".format(h, r, t) for (h, r, t) in ground_truth_pairs])
+                ground_truth = "; ".join("{}: {}, {}".format(r, h, t) for (h, r, t) in ground_truth_pairs)
             else:
                 logger.error("******Error item: {}******".format(instance))
                 raise Exception('Dataset Error:{}, No ground truth!'.format(dataset_name))
