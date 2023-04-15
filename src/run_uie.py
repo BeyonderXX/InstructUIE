@@ -444,10 +444,11 @@ def main():
                         "Prediction": pred
                     }) + "\n")
         return result
+
     print(f"-----Gradient checkpointing: {training_args.gradient_checkpointing} -----")
     if training_args.gradient_checkpointing:
         model.gradient_checkpointing_enable()
-    
+
     trainer = UIETrainer(
         model=model,
         args=training_args,
