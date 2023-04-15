@@ -554,6 +554,78 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
             yield example
 
+    def load_EET_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
+        instances, labels = self._load_dataset(dataset_path, labels_path)
+        sample_template = {"Task": "EET", "Dataset": dataset_name, "Samples": [], "subset": subset}
+
+        # TODO, reconstruct Event Instruction to two stage
+        # TODO, check
+        labels_str = ", ".join(labels.keys())
+        instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
+
+        for idx, instance in enumerate(instances):
+            example = sample_template.copy()
+            instruction = self._get_instruction('EET')
+            instruction += " Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
+            event_pairs = []
+
+            for k, event in enumerate(instance['events']):
+                instance['events'][k]['trigger'] = event['trigger'].replace("'", SINGLE_QUOTES_SUBSTITUTE)
+                instance['events'][k]['type'] = event['type'].replace("'", SINGLE_QUOTES_SUBSTITUTE)
+
+                if event['type'] == 'NA' or event['type'] == '':
+                    continue
+                event_type = event['type']
+                event_trigger = event['trigger']
+                event_pair = [event_type, event_trigger]
+                event_pairs.append(event_pair)
+
+            if len(event_pairs) > 0:
+                label = " " + "; ".join(["{}: {}".format(type, trigger) for (type, trigger) in event_pairs])
+            else:
+                label = ' None'
+
+            example["Instance"] = {
+                "id": str(idx),
+                "sentence": instance['sentence'],
+                "label": label,
+                "ground_truth": label,
+                "instruction": instruction
+            }
+
+            yield example
+
+    def load_EEA_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
+        instances, labels = self._load_dataset(dataset_path, labels_path)
+        sample_template = {"Task": "EEA", "Dataset": dataset_name, "Samples": [], "subset": subset}
+
+        # TODO, reconstruct Event Instruction to two stage
+        # TODO, check
+        instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
+
+        for idx, instance in enumerate(instances):
+            if len(instance['events']) > 1:
+                raise "Error: EEA dataset should only have one event."
+            labels_str = ', '.join(labels[instance['events'][0]['type']])
+            example = sample_template.copy()
+            instruction = self._get_instruction('EEA')
+            instruction += "Event type: " + instance['events'][0]['type'] + " \n " + " Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
+
+            event = instance['events'][0]
+            event_arguments = [" {}: {}".format(argument['name'], argument['role']) for
+                               argument in event['arguments']]
+
+            label = " None" if not event_arguments else ";".join(event_arguments)
+
+            example["Instance"] = {
+                "id": str(idx),
+                "sentence": instance['sentence'],
+                "label": label,
+                "ground_truth": label,
+                "instruction": instruction
+            }
+            yield example
+            
     def _generate_examples(self, path=None, task_config=None, max_num_instances_per_task=None, subset=None):
         """Yields examples."""
         logger.info(f"Generating tasks from = {path}")
@@ -573,6 +645,10 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 load_func = self.load_EP_dataset
             elif task == 'EPR':
                 load_func = self.load_EPR_dataset
+            elif task == 'EET':
+                load_func = self.load_EET_dataset
+            elif task == 'EEA':
+                load_func = self.load_EEA_dataset
             else:
                 raise ValueError("Unsupport {} task, plz check {} task config!".format(task, subset))
 
