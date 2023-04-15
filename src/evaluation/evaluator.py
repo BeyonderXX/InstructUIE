@@ -149,11 +149,21 @@ class AuditBase:
             new_record = {
                 'json_data': last['json_data'],
                 'predict': last['predict'],
-                'y_truth': list(last['y_truth']),
-                'y_pred': list(last['y_pred'])
+                'y_truth': last['y_truth'],
+                'y_pred': last['y_pred']
             }
+            new_record = self._to_json_object(new_record)
             self._add_record(new_record)
-                
+    @staticmethod
+    def _to_json_object(obj):
+        if isinstance(obj, str) or isinstance(obj, int) or isinstance(obj, float):
+            return obj
+        if isinstance(obj, tuple) or isinstance(obj, list) or isinstance(obj, set):
+            return [AuditBase._to_json_object(x) for x in obj]
+        if isinstance(obj, dict):
+            return {AuditBase._to_json_object(k): AuditBase._to_json_object(v) for k, v in obj.items()}
+        else:
+            raise NotImplementedError()
     def get_cnt(self):
         return self.cnt
     def get_record(self):
@@ -263,6 +273,8 @@ class AuditRetard(AuditBase):
         if hasattr(last_metric, 'last_TP'):
             if len(last['y_pred']) != 0 and len(last['y_truth']) != 0:
                 return last_metric.last_TP == 0
+        if hasattr(last_metric, 'scores'):
+            return last_metric.scores[-1] == 0
         return False
         
 class AuditWhatever(AuditBase):
@@ -352,6 +364,7 @@ class AuditConfuseMatrix(AuditBase):
                 'y_truth': list(last['y_truth']),
                 'y_pred': list(last['y_pred'])
             }
+            new_record = self._to_json_object(new_record)
             self._add_record(new_record)
 
     def get_report(self):
@@ -468,7 +481,7 @@ class EvaluatorBase:
         }
     def dump_audit_report(self, fpath):
         with open(fpath, 'w', encoding='utf-8') as f:
-            json.dump(self.get_audit_report(), f, indent=4)
+            json.dump(self.get_audit_report(), f, indent=4, ensure_ascii=False)
     
     @staticmethod
     def _resolve_option(s):
@@ -497,7 +510,7 @@ class EvaluatorBase:
         s = re.sub(',+', ',', s)
         s = re.sub('\.+', '.', s)
         s = re.sub(';+', ';', s)
-        s = s.replace('orgnization', 'organization')
+        s = s.replace('’', "'")
         return s
     
     @staticmethod
@@ -665,6 +678,34 @@ class EvaluatorEvent(EvaluatorBase):
             
             event_string = ','.join(sorted(event_elements)) # 'a:b,c:d'
             y_pred.add(event_string)
+        return y_truth, y_pred
+
+class EvaluatorEET(EvaluatorBase):
+    def _init_metric(self):
+        self.metric = MetricAcc()
+    def _extract(self, json_data, predict: str):
+        y_truth = json_data['Instance']['ground_truth']
+        y_truth = self._format(y_truth)
+
+        y_pred = self._format(predict)
+        return y_truth, y_pred
+
+class EvaluatorEEA(EvaluatorBase):
+    def _init_metric(self):
+        self.metric = MetricF1()
+    def _extract(self, json_data, predict: str):
+        y_truth = set()
+        for item in json_data['Instance']['ground_truth'].split(';'):
+            if ':' not in item:
+                continue
+            y_truth.add(self._format(item))
+        
+        y_pred = set()
+        for item in self._format(predict).split(';'):
+            if ':' not in item:
+                continue
+            y_pred.add(self._format(item))
+        
         return y_truth, y_pred
 
 # 因为后来的实际格式与最初表格中的不同，因此下列测试可能无法通过，仅作为使用示例
