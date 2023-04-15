@@ -31,9 +31,9 @@
     {"instruction_type": "zero-shot", "instruction": "Given options, please tell me the relationships of all the listed entity pairs.Output format is ( word1, relation, word2). \n"}
   ],
   "EEA": [
-    {"instruction_type": "zero-shot", "instruction": "Given event type and tigger, please tell me the arguments of all the listed option. Output format is ( name, role). \n"}
+    {"instruction_type": "zero-shot", "instruction": "Given event type and trigger, please tell me the arguments of all the listed option. Output format is ( name, role). \n"}
   ],
   "EET": [
-    {"instruction_type": "zero-shot", "instruction": "Please tell me event type and its tigger word from given type options. Output format is ( type, trigger). "}
+    {"instruction_type": "zero-shot", "instruction": "Please tell me event type and its trigger word from given type options. Output format is ( type, trigger). "}
   ]
 }
