@@ -3,10 +3,6 @@
         {
             "sampling strategy": "random",
             "dataset name": "GENIA"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "PHEE"
         }
     ],
     "RE": [
