@@ -520,7 +520,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('EE')
-            instruction += "Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
+            instruction += " Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
             event_pairs = []
 
             for k, event in enumerate(instance['events']):
@@ -531,15 +531,15 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                     continue
                 event_type = event['type']
                 event_trigger = event['trigger']
-                event_arguments = ["(name:{},role:{})".format(argument['name'], argument['role']) for
+                event_arguments = [" {}: {}".format(argument['name'], argument['role']) for
                                    argument in event['arguments']]
 
-                event_arguments = "None" if not event_arguments else ", ".join(event_arguments)
+                event_arguments = "None" if not event_arguments else ",".join(event_arguments)
                 event_pair = [event_type, event_trigger, event_arguments]
                 event_pairs.append(event_pair)
 
             if len(event_pairs) > 0:
-                label = ",".join([" ( type: {}, trigger: {}, arguments: {})".format(type, trigger, arguments)
+                label = ",".join([" ( {}: {}, {}) ".format(type, trigger, arguments)
                                    for (type, trigger, arguments) in event_pairs])
             else:
                 label = ' None'
