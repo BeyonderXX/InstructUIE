@@ -225,9 +225,9 @@ class AuditInvalid(AuditBase):
         valid_labels = set(valid_labels)
 
         for pred in last['y_pred']:
-            pred = pred.split(',')
-            if len(pred) == 3:
-                label = pred[1]
+            pred = pred.split(':')
+            if len(pred) >= 2:
+                label = pred[0]
                 if label not in valid_labels:
                     return True
         return False
@@ -236,11 +236,10 @@ class AuditFidelity(AuditBase):
     "检测不来源于句子的实体，目前只用于RE和NER"
     def _check(self, last) -> bool:
         for item in last['y_pred']:
-            item = item.split(',')       #   这里对于实体或标签本身就包含逗号的情况不好处理，
-            if len(item) <= 2:
-                ents = (item[0],)      # entities
-            else:
-                ents = (item[0], item[-1])
+            item = item.split(':')       #   这里对于实体或标签本身就包含逗号的情况不好处理，
+            if len(item) < 2:
+                continue
+            ents = item[-1].split(',')
             for ent in ents:
                 if EvaluatorBase._format(ent) not in EvaluatorBase._format(last['json_data']['Instance']['sentence']):
                     return True
@@ -251,11 +250,13 @@ class AuditGoldenlabelFault(AuditBase):
     def _check(self, last) -> bool:
         for item in last['y_truth']:
             cnt = 0
-            for i in item.split(','):
+            if len(item.split(':')) < 2:
+                continue
+            for i in item.split(':')[-1].split(','):
                 i = i.strip()
                 if i != '':
                     cnt += 1
-            if cnt <= 2:
+            if cnt <= 1:
                 return True
         return False
 
@@ -511,6 +512,7 @@ class EvaluatorBase:
         s = re.sub('\.+', '.', s)
         s = re.sub(';+', ';', s)
         s = s.replace('’', "'")
+        s = s.replace('location', 'located')
         return s
     
     @staticmethod
@@ -615,6 +617,8 @@ class EvaluatorRE(EvaluatorBase):
             # elem = ','.join(self._format(i) for i in elem[0])
             # elem = self._format(elem)
             elem = self._format(rel)
+            if ':' not in elem:
+                continue
             y_truth.add(elem)
 
         y_pred = set()
@@ -627,6 +631,8 @@ class EvaluatorRE(EvaluatorBase):
             # elem = ','.join(self._format(i) for i in elem[0])
             # elem = self._format(elem)       # 没有一个format解决不了的问题，如果有，就多加几个
             elem = self._format(rel)
+            if ':' not in elem:
+                continue
             y_pred.add(elem)
         return y_truth, y_pred
 
