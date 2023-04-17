@@ -149,11 +149,21 @@ class AuditBase:
             new_record = {
                 'json_data': last['json_data'],
                 'predict': last['predict'],
-                'y_truth': list(last['y_truth']),
-                'y_pred': list(last['y_pred'])
+                'y_truth': last['y_truth'],
+                'y_pred': last['y_pred']
             }
+            new_record = self._to_json_object(new_record)
             self._add_record(new_record)
-                
+    @staticmethod
+    def _to_json_object(obj):
+        if isinstance(obj, str) or isinstance(obj, int) or isinstance(obj, float):
+            return obj
+        if isinstance(obj, tuple) or isinstance(obj, list) or isinstance(obj, set):
+            return [AuditBase._to_json_object(x) for x in obj]
+        if isinstance(obj, dict):
+            return {AuditBase._to_json_object(k): AuditBase._to_json_object(v) for k, v in obj.items()}
+        else:
+            raise NotImplementedError()
     def get_cnt(self):
         return self.cnt
     def get_record(self):
@@ -215,9 +225,9 @@ class AuditInvalid(AuditBase):
         valid_labels = set(valid_labels)
 
         for pred in last['y_pred']:
-            pred = pred.split(',')
-            if len(pred) == 3:
-                label = pred[1]
+            pred = pred.split(':')
+            if len(pred) >= 2:
+                label = pred[0]
                 if label not in valid_labels:
                     return True
         return False
@@ -226,11 +236,10 @@ class AuditFidelity(AuditBase):
     "检测不来源于句子的实体，目前只用于RE和NER"
     def _check(self, last) -> bool:
         for item in last['y_pred']:
-            item = item.split(',')       #   这里对于实体或标签本身就包含逗号的情况不好处理，
-            if len(item) <= 2:
-                ents = (item[0],)      # entities
-            else:
-                ents = (item[0], item[-1])
+            item = item.split(':')       #   这里对于实体或标签本身就包含逗号的情况不好处理，
+            if len(item) < 2:
+                continue
+            ents = item[-1].split(',')
             for ent in ents:
                 if EvaluatorBase._format(ent) not in EvaluatorBase._format(last['json_data']['Instance']['sentence']):
                     return True
@@ -241,11 +250,13 @@ class AuditGoldenlabelFault(AuditBase):
     def _check(self, last) -> bool:
         for item in last['y_truth']:
             cnt = 0
-            for i in item.split(','):
+            if len(item.split(':')) < 2:
+                continue
+            for i in item.split(':')[-1].split(','):
                 i = i.strip()
                 if i != '':
                     cnt += 1
-            if cnt <= 2:
+            if cnt <= 1:
                 return True
         return False
 
@@ -263,6 +274,8 @@ class AuditRetard(AuditBase):
         if hasattr(last_metric, 'last_TP'):
             if len(last['y_pred']) != 0 and len(last['y_truth']) != 0:
                 return last_metric.last_TP == 0
+        if hasattr(last_metric, 'scores'):
+            return last_metric.scores[-1] == 0
         return False
         
 class AuditWhatever(AuditBase):
@@ -352,6 +365,7 @@ class AuditConfuseMatrix(AuditBase):
                 'y_truth': list(last['y_truth']),
                 'y_pred': list(last['y_pred'])
             }
+            new_record = self._to_json_object(new_record)
             self._add_record(new_record)
 
     def get_report(self):
@@ -468,7 +482,7 @@ class EvaluatorBase:
         }
     def dump_audit_report(self, fpath):
         with open(fpath, 'w', encoding='utf-8') as f:
-            json.dump(self.get_audit_report(), f, indent=4)
+            json.dump(self.get_audit_report(), f, indent=4, ensure_ascii=False)
     
     @staticmethod
     def _resolve_option(s):
@@ -497,7 +511,8 @@ class EvaluatorBase:
         s = re.sub(',+', ',', s)
         s = re.sub('\.+', '.', s)
         s = re.sub(';+', ';', s)
-        s = s.replace('orgnization', 'organization')
+        s = s.replace('’', "'")
+        s = s.replace('location', 'located')
         return s
     
     @staticmethod
@@ -602,6 +617,8 @@ class EvaluatorRE(EvaluatorBase):
             # elem = ','.join(self._format(i) for i in elem[0])
             # elem = self._format(elem)
             elem = self._format(rel)
+            if ':' not in elem:
+                continue
             y_truth.add(elem)
 
         y_pred = set()
@@ -614,6 +631,8 @@ class EvaluatorRE(EvaluatorBase):
             # elem = ','.join(self._format(i) for i in elem[0])
             # elem = self._format(elem)       # 没有一个format解决不了的问题，如果有，就多加几个
             elem = self._format(rel)
+            if ':' not in elem:
+                continue
             y_pred.add(elem)
         return y_truth, y_pred
 
@@ -665,6 +684,34 @@ class EvaluatorEvent(EvaluatorBase):
             
             event_string = ','.join(sorted(event_elements)) # 'a:b,c:d'
             y_pred.add(event_string)
+        return y_truth, y_pred
+
+class EvaluatorEET(EvaluatorBase):
+    def _init_metric(self):
+        self.metric = MetricAcc()
+    def _extract(self, json_data, predict: str):
+        y_truth = json_data['Instance']['ground_truth']
+        y_truth = self._format(y_truth)
+
+        y_pred = self._format(predict)
+        return y_truth, y_pred
+
+class EvaluatorEEA(EvaluatorBase):
+    def _init_metric(self):
+        self.metric = MetricF1()
+    def _extract(self, json_data, predict: str):
+        y_truth = set()
+        for item in json_data['Instance']['ground_truth'].split(';'):
+            if ':' not in item:
+                continue
+            y_truth.add(self._format(item))
+        
+        y_pred = set()
+        for item in self._format(predict).split(';'):
+            if ':' not in item:
+                continue
+            y_pred.add(self._format(item))
+        
         return y_truth, y_pred
 
 # 因为后来的实际格式与最初表格中的不同，因此下列测试可能无法通过，仅作为使用示例
