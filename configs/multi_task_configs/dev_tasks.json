@@ -1,22 +1,4 @@
 {
-    "EE": [
-        {
-            "sampling strategy": "random",
-            "dataset name": "GENIA"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "PHEE"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "ACE05"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "CASIE"
-        }
-    ],
     "RE": [
         {
             "sampling strategy": "full",
@@ -375,6 +357,34 @@
         {
             "sampling strategy": "random",
             "dataset name": "WikiNeural"
+        }
+    ],
+    "EEA": [
+        {
+            "sampling strategy": "full",
+            "dataset name": "PHEE"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "ACE05"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "CASIE"
+        }
+    ],
+    "EET": [
+        {
+            "sampling strategy": "full",
+            "dataset name": "PHEE"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "ACE05"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "CASIE"
         }
     ]
 }

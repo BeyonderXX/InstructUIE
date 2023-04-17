@@ -1,22 +1,4 @@
 {
-    "EE": [
-        {
-            "sampling strategy": "random",
-            "dataset name": "GENIA"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "PHEE"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "ACE05"
-        },
-        {
-            "sampling strategy": "random",
-            "dataset name": "CASIE"
-        }
-    ],
     "RE": [
         {
             "sampling strategy": "full",
@@ -27,8 +9,8 @@
             "dataset name": "NYT11_sample_30000"
         },
         {
-            "sampling strategy": "random",
-            "dataset name": "New-York-Times-RE"
+            "sampling strategy": "full",
+            "dataset name": "New-York-Times-RE_sample_30000"
         },
         {
             "sampling strategy": "random",
@@ -53,11 +35,11 @@
     ],
     "EP": [
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "ADE_corpus_sample_15000"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "NYT11_sample_30000"
         },
         {
@@ -69,7 +51,7 @@
             "dataset name": "semval-RE"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "conll04_sample_5000"
         },
         {
@@ -77,7 +59,7 @@
             "dataset name": "GIDS"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "SciERC_sample_10000"
         },
         {
@@ -87,11 +69,11 @@
     ],
     "EPR": [
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "ADE_corpus_sample_15000"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "NYT11_sample_30000"
         },
         {
@@ -103,7 +85,7 @@
             "dataset name": "semval-RE"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "conll04_sample_5000"
         },
         {
@@ -111,7 +93,7 @@
             "dataset name": "GIDS"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "SciERC_sample_10000"
         },
         {
@@ -121,8 +103,8 @@
     ],
     "NER": [
         {
-            "sampling strategy": "random",
-            "dataset name": "ACE 2004"
+            "sampling strategy": "full",
+            "dataset name": "ACE 2004_sample_15000"
         },
         {
             "sampling strategy": "full",
@@ -211,7 +193,7 @@
             "dataset name": "ACE 2004"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "ACE 2005_sample_15000"
         },
         {
@@ -235,7 +217,7 @@
             "dataset name": "Broad Tweet Corpus"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "CoNLL 2003_sample_15000"
         },
         {
@@ -271,7 +253,7 @@
             "dataset name": "ncbi"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "Ontonotes_sample_30000"
         },
         {
@@ -279,7 +261,7 @@
             "dataset name": "PolyglotNER"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "TweetNER7_sample_15000"
         },
         {
@@ -297,7 +279,7 @@
             "dataset name": "ACE 2004"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "ACE 2005_sample_15000"
         },
         {
@@ -321,7 +303,7 @@
             "dataset name": "Broad Tweet Corpus"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "CoNLL 2003_sample_15000"
         },
         {
@@ -357,7 +339,7 @@
             "dataset name": "ncbi"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "Ontonotes_sample_30000"
         },
         {
@@ -365,7 +347,7 @@
             "dataset name": "PolyglotNER"
         },
         {
-            "sampling strategy": "full",
+            "sampling strategy": "random",
             "dataset name": "TweetNER7_sample_15000"
         },
         {
@@ -375,6 +357,52 @@
         {
             "sampling strategy": "random",
             "dataset name": "WikiNeural"
+        }
+    ],
+    "EEA": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "PHEE"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "ACE05"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "CASIE"
+        }
+    ],
+    "EET": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "PHEE"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "ACE05"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "CASIE"
+        }
+    ],
+    "EE": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "GENIA"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "PHEE"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "ACE05"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "CASIE"
         }
     ]
 }
