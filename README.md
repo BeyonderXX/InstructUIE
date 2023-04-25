@@ -22,7 +22,8 @@ bash setup.sh
 
 ## Data
 
-Our models are trained and evaluated on **IE INSTRUCTIONS**, which would be released soon. 
+Our models are trained and evaluated on **IE INSTRUCTIONS**. 
+You can download the data from [Baidu NetDisk](https://pan.baidu.com/s/1R0KqeyjPHrsGcPqsbsh1XA?from=init&pwd=ybkt) or [Google Drive](https://drive.google.com/file/d/1T-5IbocGka35I7X3CE6yKe5N_Xg2lVKT/view?usp=share_link).
 
 
 ## Training
