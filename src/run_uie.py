@@ -31,6 +31,7 @@ import numpy as np
 from datasets import load_dataset
 
 import transformers
+from accelerate import init_empty_weights
 from filelock import FileLock
 from transformers import (
     AutoConfig,
@@ -46,6 +47,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from model.bloom import BloomForCausalLM_WithLoss
 from model.codegen import CodeGenForCausalLM_WithLoss
 from model.gpt_neox import GPTNeoXForCausalLM_WithLoss
+from model.llama import LlamaForCausalLM_with_lossmask
 
 from uie_collator import DataCollatorForUIE
 from uie_dataset import gen_cache_path
@@ -312,19 +314,37 @@ def main():
     # Distributed training:
     # The .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
-    config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
-        cache_dir=model_args.cache_dir,
-        use_fast=model_args.use_fast_tokenizer,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
+    if 'llama' in model_args.model_name_or_path.lower():
+        config = AutoConfig.from_pretrained(
+            model_args.model_name_or_path,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+    else:
+        config = AutoConfig.from_pretrained(
+            model_args.config_name if model_args.config_name else model_args.model_name_or_path,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
+    if 'llama' in model_args.model_name_or_path.lower():
+        tokenizer = transformers.LlamaTokenizer.from_pretrained(
+            model_args.model_name_or_path,
+            cache_dir = model_args.cache_dir,
+            use_fast = model_args.use_fast_tokenizer,
+            revision = model_args.model_revision,
+            use_auth_token = True if model_args.use_auth_token else None,
+        )
+        tokenizer.pad_token = tokenizer.bos_token
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
+            cache_dir=model_args.cache_dir,
+            use_fast=model_args.use_fast_tokenizer,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+        )
 
     if 'bloom' in model_args.model_name_or_path.lower():
         model_class = BloomForCausalLM_WithLoss
@@ -341,16 +361,39 @@ def main():
         if tokenizer.pad_token is None:
             tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = 'left'
+
+    elif 'llama' in model_args.model_name_or_path.lower():  # add llama
+        with init_empty_weights():
+            # model_class = transformers.LlamaForCausalLM
+            model_class = LlamaForCausalLM_with_lossmask
+        tokenizer.padding_side = 'left'
+
     else:
         model_class = AutoModelForSeq2SeqLM
-    model = model_class.from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
-        config=config,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-    )
+
+    if training_args.gradient_checkpointing:
+        use_cache = False
+    else:
+        use_cache = True
+    if 'llama' in model_args.model_name_or_path.lower():
+        model = model_class.from_pretrained(
+            model_args.model_name_or_path,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+            use_cache = use_cache,
+        )
+    else:
+        model = model_class.from_pretrained(
+            model_args.model_name_or_path,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+            use_cache = use_cache
+        )
     model.resize_token_embeddings(len(tokenizer))
 
     if (
@@ -444,10 +487,12 @@ def main():
                         "Prediction": pred
                     }) + "\n")
         return result
+
     print(f"-----Gradient checkpointing: {training_args.gradient_checkpointing} -----")
     if training_args.gradient_checkpointing:
         model.gradient_checkpointing_enable()
-    
+        model.use_cache = False
+        model.gradient_checkpointing = True
     trainer = UIETrainer(
         model=model,
         args=training_args,

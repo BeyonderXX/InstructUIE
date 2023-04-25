@@ -6,7 +6,7 @@ from transformers.data.data_collator import *
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_DECODER_MODELS = ['codegen', 'bloomz', 'gpt-neox']
+SUPPORTED_DECODER_MODELS = ['codegen', 'bloomz', 'gpt-neox','llama']
 SUPPORTED_SEQ2SEQ_MODELS = ['t5', 'flan-t5']
 
 
