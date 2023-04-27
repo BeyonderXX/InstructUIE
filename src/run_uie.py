@@ -314,6 +314,12 @@ def main():
     # Distributed training:
     # The .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
+
+    if training_args.gradient_checkpointing:
+        use_cache = False
+    else:
+        use_cache = True
+
     if 'llama' in model_args.model_name_or_path.lower():
         config = AutoConfig.from_pretrained(
             model_args.model_name_or_path,
@@ -321,6 +327,9 @@ def main():
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
+        config.bos_token_id = 1
+        config.eos_token_id = 2
+        config.pad_token_id = 1
     else:
         config = AutoConfig.from_pretrained(
             model_args.config_name if model_args.config_name else model_args.model_name_or_path,
@@ -336,7 +345,10 @@ def main():
             revision = model_args.model_revision,
             use_auth_token = True if model_args.use_auth_token else None,
         )
-        tokenizer.pad_token = tokenizer.bos_token
+        tokenizer.bos_token_id = 1
+        tokenizer.eos_token_id = 2
+        tokenizer.pad_token_id = 1
+
     else:
         tokenizer = AutoTokenizer.from_pretrained(
             model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
@@ -371,10 +383,6 @@ def main():
     else:
         model_class = AutoModelForSeq2SeqLM
 
-    if training_args.gradient_checkpointing:
-        use_cache = False
-    else:
-        use_cache = True
     if 'llama' in model_args.model_name_or_path.lower():
         model = model_class.from_pretrained(
             model_args.model_name_or_path,
@@ -394,6 +402,13 @@ def main():
             use_auth_token=True if model_args.use_auth_token else None,
             use_cache = use_cache
         )
+
+    if 'llama' in model_args.model_name_or_path.lower():
+        model.generation_config.bos_token_id = 1
+        model.generation_config.eos_token_id = 2
+        model.generation_config.pad_token_id = 1
+
+
     model.resize_token_embeddings(len(tokenizer))
 
     if (
