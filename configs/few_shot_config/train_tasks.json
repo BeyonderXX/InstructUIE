@@ -1,0 +1,42 @@
+{
+    "NER": [
+        {
+            "sampling strategy": "random",
+            "dataset name": "CoNLL"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "mit-movie1"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "mit-movie2"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "mit-rest"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "re3d"
+        },
+        {
+            "sampling strategy": "random",
+            "dataset name": "WNUT17"
+        }
+    ],
+    "RE":[
+        {
+          "sampling strategy": "random",
+          "dataset name": "FewRel_10-way-1-shot-seed-0"
+        },
+        {
+          "sampling strategy": "random",
+          "dataset name": "NYT_10-way-1-shot-seed-0"
+        },
+        {
+          "sampling strategy": "random",
+          "dataset name": "WEBNLG_10-way-1-shot-seed-0"
+        }
+    ]
+}

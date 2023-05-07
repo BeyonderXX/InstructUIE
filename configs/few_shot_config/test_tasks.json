@@ -1,0 +1,42 @@
+{
+    "NER": [
+        {
+            "sampling strategy": "full",
+            "dataset name": "CoNLL"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "mit-movie1"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "mit-movie2"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "mit-rest"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "re3d"
+        },
+        {
+            "sampling strategy": "full",
+            "dataset name": "WNUT17"
+        }
+    ],
+    "RE":[
+        {
+          "sampling strategy": "full",
+          "dataset name": "FewRel_10-way-1-shot-seed-0"
+        },
+        {
+          "sampling strategy": "full",
+          "dataset name": "NYT_10-way-1-shot-seed-0"
+        },
+        {
+          "sampling strategy": "full",
+          "dataset name": "WEBNLG_10-way-1-shot-seed-0"
+        }
+    ]
+}
