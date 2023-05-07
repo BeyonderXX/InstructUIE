@@ -214,14 +214,14 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                     "max_num_instances_per_task": self.config.max_num_instances_per_task,
                     "subset": "train"
                 }),
-            datasets.SplitGenerator(
-                name=datasets.Split.VALIDATION,
-                gen_kwargs={
-                    "path": split_dir,
-                    "task_config": task_configs['dev'],
-                    "max_num_instances_per_task": self.config.max_num_instances_per_eval_task,
-                    "subset": "dev"
-                }),
+            # datasets.SplitGenerator(
+            #     name=datasets.Split.VALIDATION,
+            #     gen_kwargs={
+            #         "path": split_dir,
+            #         "task_config": task_configs['dev'],
+            #         "max_num_instances_per_task": self.config.max_num_instances_per_eval_task,
+            #         "subset": "dev"
+            #     }),
             datasets.SplitGenerator(
                 name=datasets.Split.TEST,
                 gen_kwargs={
@@ -241,10 +241,65 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
         return instances, labels
 
+    def _load_fewshot_example(self, dataset_path):
+        dataset_path = dataset_path.replace('test.json','train.json')
+        dataset_path = dataset_path.replace('dev.json','train.json')
+        with open(dataset_path, encoding="utf-8") as task_f:
+            s = task_f.read()
+            instances = json.loads(s)
+        return instances
+
+    def _get_ner_example(self, instances, num_examples):
+        few_example_text = ""
+        count = 0
+        random.shuffle(instances)
+        for idx, instance in enumerate(instances):
+            kv_pairs = []
+            for entity in instance['entities']:
+                if entity['type'] == 'NA' or entity['type'] == '':
+                    continue
+                kv_pair = [entity['name'], entity['type']]
+                kv_pairs.append(kv_pair)
+            if len(kv_pairs) > 0:
+                label = " " + "; ".join(["{}: {}".format(v, k) for (k, v) in kv_pairs])
+            else:
+                continue
+            few_example_text += "Example{}: \nText: {} \nAnswer: {} \n".format(count + 1, instance['sentence'], label)
+            count += 1
+            if count == num_examples:
+                break
+        return few_example_text
+
+    def _get_re_example(self, instances, num_examples):
+        few_example_text = ""
+        count = 0
+        random.shuffle(instances)
+
+        for idx, instance in enumerate(instances):
+            relation_pairs = []
+            ground_truth_pairs = []
+            for relation in instance['relations']:
+                if relation['type'] == 'NA' or relation['type'] == '':
+                    ground_truth_pairs.append([relation['head']['name'], 'NA', relation['tail']['name']])
+                    continue
+                relation_pair = [relation['head']['name'], relation['type'], relation['tail']['name']]
+                ground_truth_pairs.append(relation_pair)
+                relation_pairs.append(relation_pair)
+            if len(relation_pairs) > 0:
+                label = ' ' + "; ".join("{}: {}, {}".format(r, h, t) for (h, r, t) in relation_pairs)
+            else:
+                continue
+
+            few_example_text += "Example{}: \nText: {} \nAnswer: {} \n".format(idx + 1, instance['sentence'], label)
+            count += 1
+            if count == num_examples:
+                break
+        return few_example_text
+
     def _get_instruction(self, task):
         assert self.config.instruction_strategy in INSTRUCTION_STRATEGIES
         if self.config.num_examples is not None and self.config.num_examples > 0:
-            task_instructions = self.config.instructions['few-shot'][task]
+            task_instructions = self.config.instructions['zero-shot'][task]
         else:
             task_instructions = self.config.instructions['zero-shot'][task]
         if self.config.instruction_strategy == "single":
@@ -254,8 +309,11 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
     def _sampling_dataset(self, instances, sampling_strategy, max_num_instances):
         if sampling_strategy == 'random' and max_num_instances is not None and max_num_instances >= 0:
-            instances = instances[:max_num_instances]
-        if max_num_instances!=None and self.config.over_sampling and len(instances) < max_num_instances:
+            if len(instances) > max_num_instances and max_num_instances > 0:
+                instances = random.sample(instances, max_num_instances)
+            else:
+                pass
+        if max_num_instances != None and self.config.over_sampling and len(instances) < max_num_instances:
             origin_instances = instances.copy()
             while len(instances) < max_num_instances:
                 instances.append(random.choice(origin_instances))
@@ -265,6 +323,11 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
     def load_NER_dataset(self, dataset_path, labels_path, dataset_name, sampling_strategy, max_num_instances, subset):
         instances, labels = self._load_dataset(dataset_path, labels_path)
 
+        if self.config.num_examples is not None and self.config.num_examples > 0:
+            few_instances = self._load_fewshot_example(dataset_path)
+        else:
+            few_instances = []
+
         sample_template = {"Task": "NER", "Dataset": dataset_name, "Samples": [], "subset": subset}
 
         labels_str = ', '.join(labels)
@@ -273,6 +336,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('NER')
+            if len(few_instances) > 0:
+                instruction += self._get_ner_example(few_instances, self.config.num_examples)
             instruction += "Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
             kv_pairs = []
 
@@ -302,7 +367,6 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         instances, labels = self._load_dataset(dataset_path, labels_path)
 
         sample_template = {"Task": "ES", "Dataset": dataset_name, "Samples": [], "subset": subset}
-
         labels_str = ', '.join(labels)
         instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
 
@@ -469,12 +533,20 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
         instances, labels = self._load_dataset(dataset_path, labels_path)
         sample_template = {"Task": "RE", "Dataset": dataset_name, "Samples": [], "subset": subset}
 
+        if self.config.num_examples is not None and self.config.num_examples > 0:
+            few_instances = self._load_fewshot_example(dataset_path)
+        else:
+            few_instances = []
+
         labels_str = ', '.join(labels)
         instances = self._sampling_dataset(instances, sampling_strategy, max_num_instances)
+
 
         for idx, instance in enumerate(instances):
             example = sample_template.copy()
             instruction = self._get_instruction('RE')
+            if len(few_instances) > 0:
+                instruction += self._get_re_example(few_instances, self.config.num_examples)
             instruction += "Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
             relation_pairs = []
             ground_truth_pairs = []
@@ -540,7 +612,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
 
             if len(event_pairs) > 0:
                 label = ",".join([" ( {}: {}, {}) ".format(type, trigger, arguments)
-                                   for (type, trigger, arguments) in event_pairs])
+                                  for (type, trigger, arguments) in event_pairs])
             else:
                 label = ' None'
 
@@ -609,7 +681,8 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
             labels_str = ', '.join(labels[instance['events'][0]['type']])
             example = sample_template.copy()
             instruction = self._get_instruction('EEA')
-            instruction += "Event type: " + instance['events'][0]['type'] + " \n " + " Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
+            instruction += "Event type: " + instance['events'][0][
+                'type'] + " \n " + " Option: " + labels_str + " \n" + "Text: " + "{0}" + " \n" + "Answer:"
 
             event = instance['events'][0]
             event_arguments = [" {}: {}".format(argument['name'], argument['role']) for
@@ -625,7 +698,7 @@ class UIEInstructions(datasets.GeneratorBasedBuilder):
                 "instruction": instruction
             }
             yield example
-            
+
     def _generate_examples(self, path=None, task_config=None, max_num_instances_per_task=None, subset=None):
         """Yields examples."""
         logger.info(f"Generating tasks from = {path}")
