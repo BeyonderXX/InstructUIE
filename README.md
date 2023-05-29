@@ -37,7 +37,7 @@ bash ./scripts/train_flan-t5.sh
 
 ## Released Checkpoints
 
-Our model checkpoints would be released soon. 
+We have released our 11B UIE model, click [here](https://huggingface.co/ZWK/InstructUIE) for download.
 
 
 ## Evaluation
