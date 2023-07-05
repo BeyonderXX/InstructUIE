@@ -53,17 +53,6 @@ To calculate f1 with predict_eval_predictions.jsonl
 python calculate_f1.py
 ```
 
-## Citation
 
-If you are using InstructUIE for your work, please kindly cite our paper:
-
-```latex
-@article{wang2023instructuie,
-  title={InstructUIE: Multi-task Instruction Tuning for Unified Information Extraction},
-  author={Wang, Xiao and Zhou, Weikang and Zu, Can and Xia, Han and Chen, Tianze and Zhang, Yuansen and Zheng, Rui and Ye, Junjie and Zhang, Qi and Gui, Tao and others},
-  journal={arXiv preprint arXiv:2304.08085},
-  year={2023}
-}
-```
 
 
