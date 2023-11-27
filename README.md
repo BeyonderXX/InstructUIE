@@ -55,13 +55,11 @@ python calculate_f1.py
 
 ## Citation
 ```latex
-@article{Wang2023InstructUIEMI,
+@article{wang2023instructuie,
   title={InstructUIE: Multi-task Instruction Tuning for Unified Information Extraction},
-  author={Xiao Wang and Wei Zhou and Can Zu and Han Xia and Tianze Chen and Yuan Zhang and Rui Zheng and Junjie Ye and Qi Zhang and Tao Gui and Jihua Kang and J. Yang and Siyuan Li and Chunsai Du},
-  journal={ArXiv},
-  year={2023},
-  volume={abs/2304.08085},
-  url={https://api.semanticscholar.org/CorpusID:258179792}
+  author={Wang, Xiao and Zhou, Weikang and Zu, Can and Xia, Han and Chen, Tianze and Zhang, Yuansen and Zheng, Rui and Ye, Junjie and Zhang, Qi and Gui, Tao and others},
+  journal={arXiv preprint arXiv:2304.08085},
+  year={2023}
 }
 ```
 
