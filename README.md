@@ -55,10 +55,10 @@ python calculate_f1.py
 
 ## Citation
 ```latex
-@article{wang2023instructuie,
-  title={InstructUIE: Multi-task Instruction Tuning for Unified Information Extraction},
-  author={Wang, Xiao and Zhou, Weikang and Zu, Can and Xia, Han and Chen, Tianze and Zhang, Yuansen and Zheng, Rui and Ye, Junjie and Zhang, Qi and Gui, Tao and others},
-  journal={arXiv preprint arXiv:2304.08085},
+@article{wang2023orthogonal,
+  title={Orthogonal Subspace Learning for Language Model Continual Learning},
+  author={Wang, Xiao and Chen, Tianze and Ge, Qiming and Xia, Han and Bao, Rong and Zheng, Rui and Zhang, Qi and Gui, Tao and Huang, Xuanjing},
+  journal={arXiv preprint arXiv:2310.14152},
   year={2023}
 }
 ```
