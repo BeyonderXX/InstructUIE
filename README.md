@@ -1,7 +1,8 @@
 # InstructUIE
 
 - This repo releases our implementation for the InstructUIE model.
-- It is built based on the pretrained Flan T5 model, and finetuned on our data.
+- It is built based on the pretrained Flan T5 model, and finetuned on our data (**IE INSTRUCTIONS**).
+- If you are looking for NER datasets or models, you may also refer to our recent work: [B2NER](https://github.com/UmeanNever/B2NER). It provides a standardized and comprehensive bilingual (Chinese-English) NER data collection, suitable for LLM training.
 
 ## Requirements
 
